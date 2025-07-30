@@ -73,12 +73,6 @@ type Gatherer interface {
 	Gather() ([]*MetricFamily, error)
 }
 
-// MultiGatherer gathers metrics from multiple gatherers
-type MultiGatherer interface {
-	Gatherer
-	// Register registers a gatherer with a namespace prefix
-	Register(namespace string, gatherer Gatherer) error
-}
 
 // Registry is both a Registerer and a Gatherer
 type Registry interface {
