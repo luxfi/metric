@@ -3,7 +3,11 @@
 
 package metrics
 
-import "time"
+import (
+	"time"
+	
+	"github.com/prometheus/client_golang/prometheus"
+)
 
 // noopCounter is a counter that does nothing
 type noopCounter struct {
@@ -115,6 +119,17 @@ func (n *noopMetrics) Registry() Registry {
 	return n.registry
 }
 
+func (n *noopMetrics) PrometheusRegistry() prometheus.Registerer {
+	return NewPrometheusRegistry(n.registry)
+}
+
+// NewNoOpMetrics creates a no-op metrics instance for testing
+func NewNoOpMetrics(namespace string) Metrics {
+	return &noopMetrics{
+		registry: &noopRegistry{},
+	}
+}
+
 // noopFactory creates noop metrics
 type noopFactory struct{}
 
@@ -132,12 +147,5 @@ func (f *noopFactory) New(namespace string) Metrics {
 func (f *noopFactory) NewWithRegistry(namespace string, registry Registry) Metrics {
 	return &noopMetrics{
 		registry: registry,
-	}
-}
-
-// NewNoOpMetrics creates a metrics instance that does nothing
-func NewNoOpMetrics(namespace string) Metrics {
-	return &noopMetrics{
-		registry: &noopRegistry{},
 	}
 }
