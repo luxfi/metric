@@ -17,6 +17,8 @@ type noopCounter struct {
 func (n *noopCounter) Inc()          { n.value++ }
 func (n *noopCounter) Add(v float64)  { n.value += v }
 func (n *noopCounter) Get() float64  { return n.value }
+func (n *noopCounter) Describe(ch chan<- *Desc) {}
+func (n *noopCounter) Collect(ch chan<- Metric) {}
 
 // noopGauge is a gauge that does nothing
 type noopGauge struct {
@@ -29,11 +31,15 @@ func (n *noopGauge) Dec()            { n.value-- }
 func (n *noopGauge) Add(v float64)   { n.value += v }
 func (n *noopGauge) Sub(v float64)   { n.value -= v }
 func (n *noopGauge) Get() float64    { return n.value }
+func (n *noopGauge) Describe(ch chan<- *Desc) {}
+func (n *noopGauge) Collect(ch chan<- Metric) {}
 
 // noopHistogram is a histogram that does nothing
 type noopHistogram struct{}
 
 func (n *noopHistogram) Observe(v float64) {}
+func (n *noopHistogram) Describe(ch chan<- *Desc) {}
+func (n *noopHistogram) Collect(ch chan<- Metric) {}
 
 // noopSummary is a summary that does nothing
 type noopSummary struct{}
@@ -120,14 +126,45 @@ func (n *noopMetrics) Registry() Registry {
 }
 
 func (n *noopMetrics) PrometheusRegistry() prometheus.Registerer {
-	return NewPrometheusRegistry(n.registry)
+	return prometheus.NewRegistry()
 }
+
 
 // NewNoOpMetrics creates a no-op metrics instance for testing
 func NewNoOpMetrics(namespace string) Metrics {
 	return &noopMetrics{
 		registry: &noopRegistry{},
 	}
+}
+
+// NewNoOp creates a no-op metrics instance without namespace
+func NewNoOp() Metrics {
+	return NewNoOpMetrics("")
+}
+
+// NewNoOpRegistry creates a no-op registry for testing
+func NewNoOpRegistry() Registry {
+	return &noopRegistry{}
+}
+
+// NewGauge creates a new standalone gauge metric
+func NewGauge(name string) Gauge {
+	return &noopGauge{}
+}
+
+// NewHistogram creates a new standalone histogram metric
+func NewHistogram(name string) Histogram {
+	return &noopHistogram{}
+}
+
+// NewCounter creates a new standalone counter metric
+func NewCounter(name string) Counter {
+	return &noopCounter{}
+}
+
+// NewSummary creates a new standalone summary metric  
+func NewSummary(name string) Summary {
+	return &noopSummary{}
 }
 
 // noopFactory creates noop metrics
