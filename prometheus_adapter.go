@@ -114,6 +114,12 @@ func (p *PrometheusCollectorAdapter) Collect(ch chan<- prometheus.Metric) {
 	}
 }
 
+// NewRegistry creates a new prometheus registry for testing
+// This abstracts away direct prometheus usage in test code
+func NewRegistry() prometheus.Registerer {
+	return prometheus.NewRegistry()
+}
+
 // PrometheusMetricAdapter adapts prometheus.Metric to our Metric interface
 type PrometheusMetricAdapter struct {
 	metric prometheus.Metric
