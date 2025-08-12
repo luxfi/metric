@@ -4,158 +4,8 @@
 package metrics
 
 import (
-	"net/http"
-	"time"
-
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
-
-// prometheusCounter wraps prometheus.Counter
-type prometheusCounter struct {
-	counter prometheus.Counter
-}
-
-func (p *prometheusCounter) Inc()         { p.counter.Inc() }
-func (p *prometheusCounter) Add(v float64) { p.counter.Add(v) }
-func (p *prometheusCounter) Get() float64 { 
-	// Prometheus doesn't expose current value directly
-	// This is a limitation of the prometheus client
-	return 0 
-}
-
-// prometheusGauge wraps prometheus.Gauge
-type prometheusGauge struct {
-	gauge prometheus.Gauge
-}
-
-func (p *prometheusGauge) Set(v float64)  { p.gauge.Set(v) }
-func (p *prometheusGauge) Inc()           { p.gauge.Inc() }
-func (p *prometheusGauge) Dec()           { p.gauge.Dec() }
-func (p *prometheusGauge) Add(v float64)  { p.gauge.Add(v) }
-func (p *prometheusGauge) Sub(v float64)  { p.gauge.Sub(v) }
-func (p *prometheusGauge) Get() float64   { 
-	// Prometheus doesn't expose current value directly
-	return 0 
-}
-
-// prometheusHistogram wraps prometheus.Histogram
-type prometheusHistogram struct {
-	histogram prometheus.Histogram
-}
-
-func (p *prometheusHistogram) Observe(v float64) { p.histogram.Observe(v) }
-
-// prometheusSummary wraps prometheus.Summary
-type prometheusSummary struct {
-	summary prometheus.Summary
-}
-
-func (p *prometheusSummary) Observe(v float64) { p.summary.Observe(v) }
-
-// prometheusTimer wraps prometheus.Timer
-type prometheusTimer struct {
-	histogram prometheus.Histogram
-}
-
-func (p *prometheusTimer) Start() func() {
-	start := time.Now()
-	return func() {
-		p.histogram.Observe(time.Since(start).Seconds())
-	}
-}
-
-func (p *prometheusTimer) ObserveTime(d time.Duration) {
-	p.histogram.Observe(d.Seconds())
-}
-
-// prometheusCounterVec wraps prometheus.CounterVec
-type prometheusCounterVec struct {
-	vec *prometheus.CounterVec
-}
-
-func (p *prometheusCounterVec) With(labels Labels) Counter {
-	return &prometheusCounter{counter: p.vec.With(prometheus.Labels(labels))}
-}
-
-func (p *prometheusCounterVec) WithLabelValues(labelValues ...string) Counter {
-	return &prometheusCounter{counter: p.vec.WithLabelValues(labelValues...)}
-}
-
-// prometheusGaugeVec wraps prometheus.GaugeVec
-type prometheusGaugeVec struct {
-	vec *prometheus.GaugeVec
-}
-
-func (p *prometheusGaugeVec) With(labels Labels) Gauge {
-	return &prometheusGauge{gauge: p.vec.With(prometheus.Labels(labels))}
-}
-
-func (p *prometheusGaugeVec) WithLabelValues(labelValues ...string) Gauge {
-	return &prometheusGauge{gauge: p.vec.WithLabelValues(labelValues...)}
-}
-
-// prometheusHistogramVec wraps prometheus.HistogramVec
-type prometheusHistogramVec struct {
-	vec *prometheus.HistogramVec
-}
-
-func (p *prometheusHistogramVec) With(labels Labels) Histogram {
-	return &prometheusHistogram{histogram: p.vec.With(prometheus.Labels(labels)).(prometheus.Histogram)}
-}
-
-func (p *prometheusHistogramVec) WithLabelValues(labelValues ...string) Histogram {
-	return &prometheusHistogram{histogram: p.vec.WithLabelValues(labelValues...).(prometheus.Histogram)}
-}
-
-// prometheusSummaryVec wraps prometheus.SummaryVec
-type prometheusSummaryVec struct {
-	vec *prometheus.SummaryVec
-}
-
-func (p *prometheusSummaryVec) With(labels Labels) Summary {
-	return &prometheusSummary{summary: p.vec.With(prometheus.Labels(labels)).(prometheus.Summary)}
-}
-
-func (p *prometheusSummaryVec) WithLabelValues(labelValues ...string) Summary {
-	return &prometheusSummary{summary: p.vec.WithLabelValues(labelValues...).(prometheus.Summary)}
-}
-
-// prometheusRegistry wraps prometheus.Registry
-type prometheusRegistry struct {
-	registry *prometheus.Registry
-}
-
-func (p *prometheusRegistry) Register(c interface{}) error {
-	if pc, ok := c.(prometheus.Collector); ok {
-		return p.registry.Register(pc)
-	}
-	// Try to convert our Collector to prometheus.Collector
-	if _, ok := c.(Collector); ok {
-		// For now, just ignore our custom collectors in prometheus registry
-		return nil
-	}
-	return nil
-}
-
-func (p *prometheusRegistry) MustRegister(cs ...interface{}) {
-	for _, c := range cs {
-		if err := p.Register(c); err != nil {
-			panic(err)
-		}
-	}
-}
-
-func (p *prometheusRegistry) Unregister(c interface{}) bool {
-	if pc, ok := c.(prometheus.Collector); ok {
-		return p.registry.Unregister(pc)
-	}
-	return false
-}
-
-func (p *prometheusRegistry) Gather() ([]*MetricFamily, error) {
-	return p.registry.Gather()
-}
 
 // prometheusMetrics implements Metrics using prometheus
 type prometheusMetrics struct {
@@ -170,7 +20,7 @@ func (p *prometheusMetrics) NewCounter(name, help string) Counter {
 		Help:      help,
 	})
 	p.registry.MustRegister(counter)
-	return &prometheusCounter{counter: counter}
+	return counter
 }
 
 func (p *prometheusMetrics) NewCounterVec(name, help string, labelNames []string) CounterVec {
@@ -180,7 +30,7 @@ func (p *prometheusMetrics) NewCounterVec(name, help string, labelNames []string
 		Help:      help,
 	}, labelNames)
 	p.registry.MustRegister(vec)
-	return &prometheusCounterVec{vec: vec}
+	return vec
 }
 
 func (p *prometheusMetrics) NewGauge(name, help string) Gauge {
@@ -190,7 +40,7 @@ func (p *prometheusMetrics) NewGauge(name, help string) Gauge {
 		Help:      help,
 	})
 	p.registry.MustRegister(gauge)
-	return &prometheusGauge{gauge: gauge}
+	return gauge
 }
 
 func (p *prometheusMetrics) NewGaugeVec(name, help string, labelNames []string) GaugeVec {
@@ -200,7 +50,7 @@ func (p *prometheusMetrics) NewGaugeVec(name, help string, labelNames []string) 
 		Help:      help,
 	}, labelNames)
 	p.registry.MustRegister(vec)
-	return &prometheusGaugeVec{vec: vec}
+	return vec
 }
 
 func (p *prometheusMetrics) NewHistogram(name, help string, buckets []float64) Histogram {
@@ -211,7 +61,7 @@ func (p *prometheusMetrics) NewHistogram(name, help string, buckets []float64) H
 		Buckets:   buckets,
 	})
 	p.registry.MustRegister(histogram)
-	return &prometheusHistogram{histogram: histogram}
+	return histogram
 }
 
 func (p *prometheusMetrics) NewHistogramVec(name, help string, labelNames []string, buckets []float64) HistogramVec {
@@ -222,7 +72,7 @@ func (p *prometheusMetrics) NewHistogramVec(name, help string, labelNames []stri
 		Buckets:   buckets,
 	}, labelNames)
 	p.registry.MustRegister(vec)
-	return &prometheusHistogramVec{vec: vec}
+	return vec
 }
 
 func (p *prometheusMetrics) NewSummary(name, help string, objectives map[float64]float64) Summary {
@@ -233,7 +83,7 @@ func (p *prometheusMetrics) NewSummary(name, help string, objectives map[float64
 		Objectives: objectives,
 	})
 	p.registry.MustRegister(summary)
-	return &prometheusSummary{summary: summary}
+	return summary
 }
 
 func (p *prometheusMetrics) NewSummaryVec(name, help string, labelNames []string, objectives map[float64]float64) SummaryVec {
@@ -244,13 +94,16 @@ func (p *prometheusMetrics) NewSummaryVec(name, help string, labelNames []string
 		Objectives: objectives,
 	}, labelNames)
 	p.registry.MustRegister(vec)
-	return &prometheusSummaryVec{vec: vec}
+	return vec
 }
 
 func (p *prometheusMetrics) Registry() Registry {
 	return p.registry
 }
 
+func (p *prometheusMetrics) PrometheusRegistry() prometheus.Registerer {
+	return p.registry
+}
 
 // prometheusFactory creates prometheus-backed metrics
 type prometheusFactory struct {
@@ -295,23 +148,4 @@ func NewPrometheusMetrics(namespace string, registry *prometheus.Registry) Metri
 		namespace: namespace,
 		registry:  registry,
 	}
-}
-
-// PrometheusHandler returns an HTTP handler for prometheus metrics
-func PrometheusHandler(registry *prometheus.Registry) http.Handler {
-	if registry == nil {
-		registry = prometheus.DefaultRegisterer.(*prometheus.Registry)
-	}
-	return promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
-}
-
-// WrapPrometheusRegistry returns the prometheus registry as our Registry alias
-func WrapPrometheusRegistry(promReg *prometheus.Registry) Registry {
-	return promReg
-}
-
-// UnwrapPrometheusRegistry extracts the prometheus registry from our Registry alias
-// Since Registry is already *prometheus.Registry, just return it
-func UnwrapPrometheusRegistry(reg Registry) (*prometheus.Registry, bool) {
-	return reg, true
 }

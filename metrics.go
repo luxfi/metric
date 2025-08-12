@@ -5,9 +5,12 @@ package metrics
 
 import (
 	"context"
+	"net/http"
 	"time"
 	
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
 )
 
@@ -175,7 +178,7 @@ type Request interface {
 }
 
 // Global factory instance
-var defaultFactory Factory = NewNoOpFactory()
+var defaultFactory Factory = NewPrometheusFactory()
 
 // SetFactory sets the global metrics factory
 func SetFactory(factory Factory) {
@@ -190,5 +193,34 @@ func New(namespace string) Metrics {
 // NewWithRegistry creates a new metrics instance with a custom registry
 func NewWithRegistry(namespace string, registry Registry) Metrics {
 	return defaultFactory.NewWithRegistry(namespace, registry)
+}
+
+// NewPrometheusRegistry creates a new prometheus registry
+func NewPrometheusRegistry() Registry {
+	return prometheus.NewRegistry()
+}
+
+// PrometheusRegistry is an alias for prometheus.Registry
+type PrometheusRegistry = prometheus.Registry
+
+// HTTPHandler creates an HTTP handler for metrics
+func HTTPHandler(gatherer prometheus.Gatherer, opts promhttp.HandlerOpts) http.Handler {
+	return promhttp.HandlerFor(gatherer, opts)
+}
+
+// HTTPHandlerOpts are options for the HTTP handler
+type HTTPHandlerOpts = promhttp.HandlerOpts
+
+// ProcessCollectorOpts are options for the process collector
+type ProcessCollectorOpts = collectors.ProcessCollectorOpts
+
+// NewProcessCollector creates a new process collector
+func NewProcessCollector(opts ProcessCollectorOpts) prometheus.Collector {
+	return collectors.NewProcessCollector(opts)
+}
+
+// NewGoCollector creates a new Go collector
+func NewGoCollector() prometheus.Collector {
+	return collectors.NewGoCollector()
 }
 
