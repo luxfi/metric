@@ -19,11 +19,6 @@ func NewPrometheusRegistry() Registry {
 	return prometheus.NewRegistry()
 }
 
-// DefaultPrometheusRegistry returns the default prometheus registry
-func DefaultPrometheusRegistry() Registry {
-	return prometheus.DefaultRegisterer.(*prometheus.Registry)
-}
-
 // ProcessCollectorOpts are options for the process collector
 type ProcessCollectorOpts = collectors.ProcessCollectorOpts
 
@@ -47,18 +42,3 @@ type HTTPHandlerOpts = promhttp.HandlerOpts
 
 // MetricFamilies is a slice of metric families
 type MetricFamilies = []*dto.MetricFamily
-
-// GatherAndFormat gathers metrics and formats them
-func GatherAndFormat(gatherer prometheus.Gatherer) (MetricFamilies, error) {
-	return gatherer.Gather()
-}
-
-// PrometheusRegistry wraps prometheus Registry for compatibility
-func PrometheusRegistry() Registry {
-	return prometheus.NewRegistry()
-}
-
-// MakeAndRegisterSimple creates a registry with a gatherer (simplified version)
-func MakeAndRegisterSimple(gatherer interface{}, namespace string) (Registry, error) {
-	return PrometheusRegistry(), nil
-}
