@@ -188,7 +188,7 @@ func (p *prometheusMetrics) Registry() Registry {
 	return p.registry
 }
 
-func (p *prometheusMetrics) PrometheusRegistry() prometheus.Registerer {
+func (p *prometheusMetrics) PrometheusRegistry() interface{} {
 	return p.registry
 }
 

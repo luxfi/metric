@@ -106,6 +106,9 @@ type Metrics interface {
 	
 	// Registry returns the underlying registry
 	Registry() Registry
+	
+	// PrometheusRegistry returns the prometheus registerer for compatibility
+	PrometheusRegistry() interface{}
 }
 
 // CounterVec is a vector of counters
