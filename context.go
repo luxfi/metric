@@ -1,109 +1,361 @@
-// Copyright (C) 2019-2024, Lux Industries Inc. All rights reserved.
+// Copyright (C) 2019-2025, Lux Industries Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
 package metrics
 
 import (
 	"context"
-	
+	"fmt"
+	"sort"
+	"sync"
+
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"google.golang.org/protobuf/proto"
 )
 
-// GathererWithContext is a context-aware variant of prometheus.Gatherer
-// that accepts a context.Context for timeout and cancellation propagation.
-type GathererWithContext interface {
-	// GatherWithContext works like Gather but accepts a context for
-	// timeout/cancellation and request-scoped values.
-	GatherWithContext(context.Context) ([]*dto.MetricFamily, error)
-}
-
-// CollectorWithContext is a context-aware variant of prometheus.Collector
-// that accepts a context.Context in its Collect method.
+// CollectorWithContext is a Collector that can consume a Context for
+// timeout/cancellation and request-scoped values.
 type CollectorWithContext interface {
-	// DescribeByCollect returns true if Describe should simply invoke
-	// CollectWithContext and send the descriptors of the gathered metrics.
-	//
-	// This is useful for custom Collectors that dynamically generate metrics.
-	DescribeByCollect() bool
-	
-	// Describe sends the super-set of all possible descriptors of metrics
-	// collected by this Collector to the provided channel and returns once
-	// the last descriptor has been sent.
-	Describe(chan<- *prometheus.Desc)
+	prometheus.Collector // Embeds the base interface for compatibility
 	
 	// CollectWithContext works like Collect but accepts a context for
 	// timeout/cancellation and request-scoped values.
-	CollectWithContext(context.Context, chan<- prometheus.Metric)
+	CollectWithContext(ctx context.Context, ch chan<- prometheus.Metric)
 }
 
-// RegistryWithContext extends the standard Registry to support context-aware
-// collectors and gatherers.
-type RegistryWithContext struct {
-	*prometheus.Registry
-	contextCollectors []CollectorWithContext
+// GathererWithContext is a Gatherer that accepts a context.Context for
+// timeout/cancellation propagation and request-scoped values.
+type GathererWithContext interface {
+	prometheus.Gatherer // Embeds the base interface for compatibility
+	
+	// GatherWithContext works like Gather but accepts a context for
+	// timeout/cancellation and request-scoped values.
+	GatherWithContext(ctx context.Context) ([]*dto.MetricFamily, error)
 }
 
-// NewRegistryWithContext creates a new registry that supports both standard
+// ContextRegistry is a registry that supports both standard and context-aware collectors.
+// It implements both prometheus.Gatherer and GathererWithContext interfaces.
+type ContextRegistry struct {
+	mu         sync.RWMutex
+	collectors map[uint64]collectorEntry // Map of collector ID to entry
+	nextID     uint64
+	pedantic   bool // If true, perform extra validation
+}
+
+// collectorEntry stores a collector along with metadata
+type collectorEntry struct {
+	id        uint64
+	collector prometheus.Collector
+	isContext bool // True if this collector implements CollectorWithContext
+}
+
+// NewContextRegistry creates a new registry that supports both standard
 // and context-aware collectors.
-func NewRegistryWithContext() *RegistryWithContext {
-	return &RegistryWithContext{
-		Registry:          prometheus.NewRegistry(),
-		contextCollectors: make([]CollectorWithContext, 0),
+func NewContextRegistry() *ContextRegistry {
+	return &ContextRegistry{
+		collectors: make(map[uint64]collectorEntry),
+		pedantic:   false,
 	}
 }
 
-// RegisterWithContext registers a context-aware collector.
-func (r *RegistryWithContext) RegisterWithContext(c CollectorWithContext) error {
-	r.contextCollectors = append(r.contextCollectors, c)
-	// Also register a wrapper for backward compatibility
-	return r.Register(&contextCollectorWrapper{collector: c})
+// NewPedanticContextRegistry creates a new registry with extra validation enabled.
+func NewPedanticContextRegistry() *ContextRegistry {
+	r := NewContextRegistry()
+	r.pedantic = true
+	return r
 }
 
-// GatherWithContext implements GathererWithContext interface.
-func (r *RegistryWithContext) GatherWithContext(ctx context.Context) ([]*dto.MetricFamily, error) {
-	// First gather from standard collectors
-	families, err := r.Gather()
-	if err != nil {
-		return nil, err
+// Register registers a collector (either standard or context-aware).
+func (r *ContextRegistry) Register(c prometheus.Collector) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	// Check if it's a context-aware collector
+	_, isContext := c.(CollectorWithContext)
+	
+	// Get descriptors to validate the collector
+	descChan := make(chan *prometheus.Desc, 16)
+	go func() {
+		c.Describe(descChan)
+		close(descChan)
+	}()
+	
+	// Collect all descriptors
+	var descs []*prometheus.Desc
+	for desc := range descChan {
+		descs = append(descs, desc)
 	}
 	
-	// Then gather from context-aware collectors
-	for _, collector := range r.contextCollectors {
-		ch := make(chan prometheus.Metric, 100)
-		go func() {
-			collector.CollectWithContext(ctx, ch)
-			close(ch)
-		}()
-		
-		// Collect metrics from channel
-		for metric := range ch {
-			// Convert metric to dto.MetricFamily
-			// This is simplified - real implementation would need proper conversion
-			desc := metric.Desc()
-			family := &dto.MetricFamily{
-				Name: proto.String(desc.String()),
-				Help: proto.String("Context-aware metric"),
-				Type: dto.MetricType_GAUGE.Enum(),
+	// If pedantic mode, check for duplicates
+	if r.pedantic {
+		for _, existing := range r.collectors {
+			existingDescChan := make(chan *prometheus.Desc, 16)
+			go func() {
+				existing.collector.Describe(existingDescChan)
+				close(existingDescChan)
+			}()
+			
+			for existingDesc := range existingDescChan {
+				for _, newDesc := range descs {
+					if existingDesc.String() == newDesc.String() {
+						return fmt.Errorf("descriptor %s already registered", newDesc)
+					}
+				}
 			}
-			families = append(families, family)
 		}
 	}
 	
-	return families, nil
+	// Register the collector
+	entry := collectorEntry{
+		id:        r.nextID,
+		collector: c,
+		isContext: isContext,
+	}
+	r.collectors[r.nextID] = entry
+	r.nextID++
+	
+	return nil
 }
 
-// contextCollectorWrapper wraps a CollectorWithContext to implement prometheus.Collector
-type contextCollectorWrapper struct {
+// MustRegister registers collectors and panics on error.
+func (r *ContextRegistry) MustRegister(cs ...prometheus.Collector) {
+	for _, c := range cs {
+		if err := r.Register(c); err != nil {
+			panic(err)
+		}
+	}
+}
+
+// Unregister removes a collector from the registry.
+func (r *ContextRegistry) Unregister(c prometheus.Collector) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	
+	for id, entry := range r.collectors {
+		if entry.collector == c {
+			delete(r.collectors, id)
+			return true
+		}
+	}
+	return false
+}
+
+// Gather implements prometheus.Gatherer for backward compatibility.
+func (r *ContextRegistry) Gather() ([]*dto.MetricFamily, error) {
+	return r.GatherWithContext(context.Background())
+}
+
+// GatherWithContext implements GathererWithContext interface.
+func (r *ContextRegistry) GatherWithContext(ctx context.Context) ([]*dto.MetricFamily, error) {
+	r.mu.RLock()
+	collectors := make([]collectorEntry, 0, len(r.collectors))
+	for _, entry := range r.collectors {
+		collectors = append(collectors, entry)
+	}
+	r.mu.RUnlock()
+	
+	// Check if context is already canceled
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+	
+	// Channel for receiving metrics from collectors
+	metricCh := make(chan prometheus.Metric, 1024)
+	var wg sync.WaitGroup
+	
+	// Error channel for collector errors
+	errCh := make(chan error, len(collectors))
+	
+	// Start collectors in parallel
+	for _, entry := range collectors {
+		// Check context before starting each collector
+		if ctx.Err() != nil {
+			close(metricCh)
+			return nil, ctx.Err()
+		}
+		
+		wg.Add(1)
+		go func(e collectorEntry) {
+			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					errCh <- fmt.Errorf("collector panicked: %v", r)
+				}
+			}()
+			
+			// Create a collector-specific channel
+			collectorCh := make(chan prometheus.Metric, 256)
+			done := make(chan struct{})
+			
+			// Forward metrics from collector channel to main channel
+			go func() {
+				for metric := range collectorCh {
+					select {
+					case metricCh <- metric:
+					case <-ctx.Done():
+						return
+					}
+				}
+				close(done)
+			}()
+			
+			// Call the appropriate collect method
+			if e.isContext {
+				if cwc, ok := e.collector.(CollectorWithContext); ok {
+					cwc.CollectWithContext(ctx, collectorCh)
+				}
+			} else {
+				e.collector.Collect(collectorCh)
+			}
+			
+			close(collectorCh)
+			<-done
+		}(entry)
+	}
+	
+	// Wait for all collectors to finish and close the metric channel
+	go func() {
+		wg.Wait()
+		close(metricCh)
+		close(errCh)
+	}()
+	
+	// Collect metrics into families
+	metricFamilies := make(map[string]*dto.MetricFamily)
+	
+	for metric := range metricCh {
+		// Check context periodically
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+		
+		// Convert metric to DTO
+		dtoMetric := &dto.Metric{}
+		if err := metric.Write(dtoMetric); err != nil {
+			return nil, fmt.Errorf("error writing metric: %w", err)
+		}
+		
+		// Get metric descriptor
+		desc := metric.Desc()
+		descString := desc.String()
+		
+		// Parse descriptor to get name and help (simplified)
+		// In production, you'd parse this more carefully
+		fqName := descString // This is simplified; real implementation would parse properly
+		
+		// Get or create metric family
+		mf, exists := metricFamilies[fqName]
+		if !exists {
+			mf = &dto.MetricFamily{
+				Name: proto.String(fqName),
+				Help: proto.String(""), // Would be extracted from descriptor
+				Type: dto.MetricType_UNTYPED.Enum(), // Would be determined from metric type
+			}
+			metricFamilies[fqName] = mf
+		}
+		
+		// Add metric to family
+		mf.Metric = append(mf.Metric, dtoMetric)
+	}
+	
+	// Check for collector errors
+	select {
+	case err := <-errCh:
+		if err != nil {
+			return nil, err
+		}
+	default:
+	}
+	
+	// Convert map to sorted slice
+	result := make([]*dto.MetricFamily, 0, len(metricFamilies))
+	for _, mf := range metricFamilies {
+		result = append(result, mf)
+	}
+	
+	// Sort by name for consistent output
+	sort.Slice(result, func(i, j int) bool {
+		return *result[i].Name < *result[j].Name
+	})
+	
+	return result, nil
+}
+
+// CollectorFunc is an adapter to allow the use of ordinary functions as
+// context-aware collectors.
+type CollectorFunc struct {
+	descFunc    func(chan<- *prometheus.Desc)
+	collectFunc func(context.Context, chan<- prometheus.Metric)
+}
+
+// NewCollectorFunc creates a new CollectorFunc.
+func NewCollectorFunc(
+	descFunc func(chan<- *prometheus.Desc),
+	collectFunc func(context.Context, chan<- prometheus.Metric),
+) *CollectorFunc {
+	return &CollectorFunc{
+		descFunc:    descFunc,
+		collectFunc: collectFunc,
+	}
+}
+
+// Describe implements prometheus.Collector.
+func (f *CollectorFunc) Describe(ch chan<- *prometheus.Desc) {
+	if f.descFunc != nil {
+		f.descFunc(ch)
+	}
+}
+
+// Collect implements prometheus.Collector.
+func (f *CollectorFunc) Collect(ch chan<- prometheus.Metric) {
+	if f.collectFunc != nil {
+		f.collectFunc(context.Background(), ch)
+	}
+}
+
+// CollectWithContext implements CollectorWithContext.
+func (f *CollectorFunc) CollectWithContext(ctx context.Context, ch chan<- prometheus.Metric) {
+	if f.collectFunc != nil {
+		f.collectFunc(ctx, ch)
+	}
+}
+
+// CollectorAdapter wraps a standard prometheus.Collector to implement CollectorWithContext.
+type CollectorAdapter struct {
+	prometheus.Collector
+}
+
+// NewCollectorAdapter creates a new adapter for a standard collector.
+func NewCollectorAdapter(c prometheus.Collector) CollectorWithContext {
+	return &CollectorAdapter{Collector: c}
+}
+
+// CollectWithContext implements CollectorWithContext by ignoring the context.
+func (a *CollectorAdapter) CollectWithContext(ctx context.Context, ch chan<- prometheus.Metric) {
+	// Simply delegate to the standard Collect method
+	a.Collector.Collect(ch)
+}
+
+// ContextCollectorWrapper wraps a CollectorWithContext to implement prometheus.Collector.
+type ContextCollectorWrapper struct {
 	collector CollectorWithContext
 }
 
-func (w *contextCollectorWrapper) Describe(ch chan<- *prometheus.Desc) {
+// NewContextCollectorWrapper creates a wrapper for a context-aware collector.
+func NewContextCollectorWrapper(c CollectorWithContext) prometheus.Collector {
+	return &ContextCollectorWrapper{collector: c}
+}
+
+// Describe implements prometheus.Collector.
+func (w *ContextCollectorWrapper) Describe(ch chan<- *prometheus.Desc) {
 	w.collector.Describe(ch)
 }
 
-func (w *contextCollectorWrapper) Collect(ch chan<- prometheus.Metric) {
+// Collect implements prometheus.Collector.
+func (w *ContextCollectorWrapper) Collect(ch chan<- prometheus.Metric) {
 	// Use background context when called without context
 	w.collector.CollectWithContext(context.Background(), ch)
 }
@@ -116,7 +368,7 @@ func (f GathererFunc) Gather() ([]*dto.MetricFamily, error) {
 	return f()
 }
 
-// GathererWithContextFunc is an adapter to allow the use of ordinary functions 
+// GathererWithContextFunc is an adapter to allow the use of ordinary functions
 // as context-aware Gatherers.
 type GathererWithContextFunc func(context.Context) ([]*dto.MetricFamily, error)
 
@@ -128,4 +380,99 @@ func (f GathererWithContextFunc) GatherWithContext(ctx context.Context) ([]*dto.
 // Gather implements prometheus.Gatherer for backward compatibility.
 func (f GathererWithContextFunc) Gather() ([]*dto.MetricFamily, error) {
 	return f(context.Background())
+}
+
+// MultiGathererWithContext extends MultiGatherer with context support.
+type MultiGathererWithContext interface {
+	GathererWithContext
+	
+	// Register adds the outputs of gatherer to the results of future calls to
+	// Gather with the provided namespace added to the metrics.
+	Register(namespace string, gatherer prometheus.Gatherer) error
+	
+	// Deregister removes the outputs of a gatherer with namespace from the results
+	// of future calls to Gather.
+	Deregister(namespace string) bool
+}
+
+// multiGathererWithContext implements MultiGathererWithContext.
+type multiGathererWithContext struct {
+	mu        sync.RWMutex
+	gatherers map[string]prometheus.Gatherer
+}
+
+// NewMultiGathererWithContext creates a new MultiGathererWithContext.
+func NewMultiGathererWithContext() MultiGathererWithContext {
+	return &multiGathererWithContext{
+		gatherers: make(map[string]prometheus.Gatherer),
+	}
+}
+
+// Register adds a gatherer with a namespace.
+func (g *multiGathererWithContext) Register(namespace string, gatherer prometheus.Gatherer) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	
+	if _, exists := g.gatherers[namespace]; exists {
+		return fmt.Errorf("gatherer already registered for namespace: %s", namespace)
+	}
+	g.gatherers[namespace] = gatherer
+	return nil
+}
+
+// Deregister removes a gatherer by namespace.
+func (g *multiGathererWithContext) Deregister(namespace string) bool {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	
+	_, exists := g.gatherers[namespace]
+	delete(g.gatherers, namespace)
+	return exists
+}
+
+// Gather implements prometheus.Gatherer.
+func (g *multiGathererWithContext) Gather() ([]*dto.MetricFamily, error) {
+	return g.GatherWithContext(context.Background())
+}
+
+// GatherWithContext implements GathererWithContext.
+func (g *multiGathererWithContext) GatherWithContext(ctx context.Context) ([]*dto.MetricFamily, error) {
+	g.mu.RLock()
+	gatherers := make(map[string]prometheus.Gatherer, len(g.gatherers))
+	for k, v := range g.gatherers {
+		gatherers[k] = v
+	}
+	g.mu.RUnlock()
+	
+	var result []*dto.MetricFamily
+	for namespace, gatherer := range gatherers {
+		// Check context before gathering from each gatherer
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		
+		var metrics []*dto.MetricFamily
+		var err error
+		
+		// Use context-aware gathering if available
+		if gwc, ok := gatherer.(GathererWithContext); ok {
+			metrics, err = gwc.GatherWithContext(ctx)
+		} else {
+			metrics, err = gatherer.Gather()
+		}
+		
+		if err != nil {
+			return nil, fmt.Errorf("error gathering from namespace %s: %w", namespace, err)
+		}
+		
+		// Add namespace prefix to each metric
+		for _, mf := range metrics {
+			prefixedName := namespace + "_" + *mf.Name
+			mf.Name = &prefixedName
+		}
+		
+		result = append(result, metrics...)
+	}
+	
+	return result, nil
 }
