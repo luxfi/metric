@@ -22,7 +22,7 @@ func TestContextRegistry(t *testing.T) {
 		Name: "test_counter",
 		Help: "A test counter",
 	})
-	
+
 	err := reg.Register(counter)
 	if err != nil {
 		t.Fatalf("Failed to register counter: %v", err)
@@ -33,7 +33,7 @@ func TestContextRegistry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to gather metrics: %v", err)
 	}
-	
+
 	if len(mfs) == 0 {
 		t.Error("Expected at least one metric family")
 	}
@@ -42,29 +42,29 @@ func TestContextRegistry(t *testing.T) {
 // TestContextRegistryWithContext tests context propagation through the registry
 func TestContextRegistryWithContext(t *testing.T) {
 	reg := NewContextRegistry()
-	
+
 	// Create a context-aware collector
 	contextCollector := &testContextCollector{
 		name: "test_context_metric",
 		help: "A test context metric",
 	}
-	
+
 	err := reg.Register(contextCollector)
 	if err != nil {
 		t.Fatalf("Failed to register context collector: %v", err)
 	}
-	
+
 	// Test with a normal context
 	ctx := context.Background()
 	mfs, err := reg.GatherWithContext(ctx)
 	if err != nil {
 		t.Fatalf("Failed to gather with context: %v", err)
 	}
-	
+
 	if len(mfs) == 0 {
 		t.Error("Expected at least one metric family")
 	}
-	
+
 	// Verify the collector received the context
 	if !contextCollector.contextReceived {
 		t.Error("Context was not propagated to the collector")
@@ -74,28 +74,28 @@ func TestContextRegistryWithContext(t *testing.T) {
 // TestContextRegistryTimeout tests timeout handling
 func TestContextRegistryTimeout(t *testing.T) {
 	reg := NewContextRegistry()
-	
+
 	// Create a slow collector
 	slowCollector := &testSlowCollector{
 		delay: 2 * time.Second,
 		name:  "slow_metric",
 	}
-	
+
 	err := reg.Register(slowCollector)
 	if err != nil {
 		t.Fatalf("Failed to register slow collector: %v", err)
 	}
-	
+
 	// Create a context with a short timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
-	
+
 	// Gathering should timeout
 	_, err = reg.GatherWithContext(ctx)
 	if err == nil {
 		t.Error("Expected timeout error")
 	}
-	
+
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Errorf("Expected DeadlineExceeded error, got: %v", err)
 	}
@@ -104,31 +104,31 @@ func TestContextRegistryTimeout(t *testing.T) {
 // TestContextRegistryCancellation tests cancellation handling
 func TestContextRegistryCancellation(t *testing.T) {
 	reg := NewContextRegistry()
-	
+
 	// Create a collector that respects cancellation
 	cancelCollector := &testCancellableCollector{
 		name: "cancellable_metric",
 	}
-	
+
 	err := reg.Register(cancelCollector)
 	if err != nil {
 		t.Fatalf("Failed to register cancellable collector: %v", err)
 	}
-	
+
 	// Create a cancellable context
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	// Cancel immediately to ensure cancellation happens during collection
 	cancel()
-	
+
 	// Try to gather with cancelled context
 	_, gatherErr := reg.GatherWithContext(ctx)
-	
+
 	// Should have received a cancellation error
 	if gatherErr == nil {
 		t.Error("Expected cancellation error")
 	}
-	
+
 	if !errors.Is(gatherErr, context.Canceled) {
 		t.Errorf("Expected Canceled error, got: %v", gatherErr)
 	}
@@ -138,7 +138,7 @@ func TestContextRegistryCancellation(t *testing.T) {
 func TestCollectorFunc(t *testing.T) {
 	var descCalled, collectCalled bool
 	var receivedContext context.Context
-	
+
 	cf := NewCollectorFunc(
 		func(ch chan<- *prometheus.Desc) {
 			descCalled = true
@@ -155,26 +155,26 @@ func TestCollectorFunc(t *testing.T) {
 			ch <- metric
 		},
 	)
-	
+
 	// Test Describe
 	descCh := make(chan *prometheus.Desc, 1)
 	cf.Describe(descCh)
 	close(descCh)
-	
+
 	if !descCalled {
 		t.Error("Describe function was not called")
 	}
-	
+
 	// Test CollectWithContext
 	ctx := context.WithValue(context.Background(), "test", "value")
 	metricCh := make(chan prometheus.Metric, 1)
 	cf.CollectWithContext(ctx, metricCh)
 	close(metricCh)
-	
+
 	if !collectCalled {
 		t.Error("Collect function was not called")
 	}
-	
+
 	if receivedContext.Value("test") != "value" {
 		t.Error("Context was not properly passed to collect function")
 	}
@@ -187,17 +187,17 @@ func TestCollectorAdapter(t *testing.T) {
 		Name: "adapted_counter",
 		Help: "An adapted counter",
 	})
-	
+
 	// Adapt it to be context-aware
 	adapted := NewCollectorAdapter(counter)
-	
+
 	// Test that it still works with context
 	ctx := context.Background()
 	ch := make(chan prometheus.Metric, 1)
-	
+
 	// This should not panic
 	adapted.CollectWithContext(ctx, ch)
-	
+
 	// Verify it implements both interfaces
 	var _ prometheus.Collector = adapted
 	var _ CollectorWithContext = adapted
@@ -206,7 +206,7 @@ func TestCollectorAdapter(t *testing.T) {
 // TestMultiGathererWithContext tests the multi-gatherer with context support
 func TestMultiGathererWithContext(t *testing.T) {
 	mg := NewMultiGathererWithContext()
-	
+
 	// Register a standard registry
 	reg1 := prometheus.NewRegistry()
 	counter := prometheus.NewCounter(prometheus.CounterOpts{
@@ -214,12 +214,12 @@ func TestMultiGathererWithContext(t *testing.T) {
 		Help: "First counter",
 	})
 	reg1.MustRegister(counter)
-	
+
 	err := mg.Register("namespace1", reg1)
 	if err != nil {
 		t.Fatalf("Failed to register first gatherer: %v", err)
 	}
-	
+
 	// Register a context-aware registry
 	reg2 := NewContextRegistry()
 	contextCollector := &testContextCollector{
@@ -227,31 +227,31 @@ func TestMultiGathererWithContext(t *testing.T) {
 		help: "Context-aware metric",
 	}
 	reg2.MustRegister(contextCollector)
-	
+
 	err = mg.Register("namespace2", reg2)
 	if err != nil {
 		t.Fatalf("Failed to register second gatherer: %v", err)
 	}
-	
+
 	// Gather with context
 	ctx := context.Background()
 	mfs, err := mg.GatherWithContext(ctx)
 	if err != nil {
 		t.Fatalf("Failed to gather with context: %v", err)
 	}
-	
+
 	// Should have metrics from both registries
 	if len(mfs) < 2 {
 		t.Errorf("Expected at least 2 metric families, got %d", len(mfs))
 	}
-	
+
 	// Debug: print what we got
 	for _, mf := range mfs {
 		if mf.Name != nil {
 			t.Logf("Found metric: %s", *mf.Name)
 		}
 	}
-	
+
 	// Check that namespaces were applied
 	foundNamespace1 := false
 	foundNamespace2 := false
@@ -268,7 +268,7 @@ func TestMultiGathererWithContext(t *testing.T) {
 			}
 		}
 	}
-	
+
 	if !foundNamespace1 {
 		t.Error("Namespace1 prefix not found")
 	}
@@ -297,7 +297,7 @@ func (c *testContextCollector) CollectWithContext(ctx context.Context, ch chan<-
 	c.mu.Lock()
 	c.contextReceived = ctx != nil
 	c.mu.Unlock()
-	
+
 	metric, _ := prometheus.NewConstMetric(
 		prometheus.NewDesc(c.name, c.help, nil, nil),
 		prometheus.GaugeValue,
@@ -345,7 +345,7 @@ func (c *testCancellableCollector) CollectWithContext(ctx context.Context, ch ch
 	// Simulate some work that can be cancelled
 	ticker := time.NewTicker(10 * time.Millisecond)
 	defer ticker.Stop()
-	
+
 	for i := 0; i < 10; i++ {
 		select {
 		case <-ctx.Done():
@@ -357,7 +357,7 @@ func (c *testCancellableCollector) CollectWithContext(ctx context.Context, ch ch
 			// Continue working
 		}
 	}
-	
+
 	// If not cancelled, send a metric
 	metric, _ := prometheus.NewConstMetric(
 		prometheus.NewDesc(c.name, "Cancellable metric", nil, nil),
