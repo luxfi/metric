@@ -279,18 +279,10 @@ func (f *prometheusFactory) New(namespace string) Metrics {
 }
 
 func (f *prometheusFactory) NewWithRegistry(namespace string, registry Registry) Metrics {
-	// Note: This would need to handle type conversion
-	promReg, ok := registry.(*prometheusRegistry)
-	if ok {
-		return &prometheusMetrics{
-			namespace: namespace,
-			registry:  promReg.registry,
-		}
-	}
-	// Fall back to default registry
+	// Registry is already *prometheus.Registry, use it directly
 	return &prometheusMetrics{
 		namespace: namespace,
-		registry:  f.defaultRegistry,
+		registry:  registry,
 	}
 }
 
