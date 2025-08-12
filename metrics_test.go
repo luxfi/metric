@@ -62,7 +62,7 @@ func TestNoOpFactory(t *testing.T) {
 	factory := NewNoOpFactory()
 	
 	metrics1 := factory.New("namespace1")
-	metrics2 := factory.NewWithRegistry("namespace2", &noopRegistry{})
+	metrics2 := factory.NewWithRegistry("namespace2", NewNoOpRegistry())
 	
 	// These should not panic
 	metrics1.NewCounter("counter", "help")

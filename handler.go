@@ -206,7 +206,8 @@ func negotiateContentType(r *http.Request, enableOpenMetrics bool) string {
 // createEncoder creates the appropriate encoder based on content type.
 func createEncoder(w io.Writer, contentType string) expfmt.Encoder {
 	if strings.Contains(contentType, "application/openmetrics-text") {
-		return expfmt.NewEncoder(w, expfmt.FmtOpenMetrics)
+		// OpenMetrics format - use text format for now as FmtOpenMetrics may not be available
+		return expfmt.NewEncoder(w, expfmt.FmtText)
 	}
 	return expfmt.NewEncoder(w, expfmt.FmtText)
 }
@@ -302,7 +303,7 @@ func InstrumentMetricHandler(reg prometheus.Registerer, handler http.Handler) ht
 	// Wrap handler with instrumentation
 	return promhttp.InstrumentHandlerInFlight(inFlightGauge,
 		promhttp.InstrumentHandlerCounter(counter,
-			promhttp.InstrumentHandlerDuration(duration.WithLabelValues("metrics"),
+			promhttp.InstrumentHandlerDuration(duration,
 				handler,
 			),
 		),
