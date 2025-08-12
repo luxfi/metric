@@ -195,32 +195,6 @@ func NewWithRegistry(namespace string, registry Registry) Metrics {
 	return defaultFactory.NewWithRegistry(namespace, registry)
 }
 
-// NewPrometheusRegistry creates a new prometheus registry
-func NewPrometheusRegistry() Registry {
-	return prometheus.NewRegistry()
-}
-
 // PrometheusRegistry is an alias for prometheus.Registry
 type PrometheusRegistry = prometheus.Registry
-
-// HTTPHandler creates an HTTP handler for metrics
-func HTTPHandler(gatherer prometheus.Gatherer, opts promhttp.HandlerOpts) http.Handler {
-	return promhttp.HandlerFor(gatherer, opts)
-}
-
-// HTTPHandlerOpts are options for the HTTP handler
-type HTTPHandlerOpts = promhttp.HandlerOpts
-
-// ProcessCollectorOpts are options for the process collector
-type ProcessCollectorOpts = collectors.ProcessCollectorOpts
-
-// NewProcessCollector creates a new process collector
-func NewProcessCollector(opts ProcessCollectorOpts) prometheus.Collector {
-	return collectors.NewProcessCollector(opts)
-}
-
-// NewGoCollector creates a new Go collector
-func NewGoCollector() prometheus.Collector {
-	return collectors.NewGoCollector()
-}
 
