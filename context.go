@@ -351,7 +351,7 @@ func NewCollectorAdapter(c prometheus.Collector) CollectorWithContext {
 // CollectWithContext implements CollectorWithContext by ignoring the context.
 func (a *CollectorAdapter) CollectWithContext(ctx context.Context, ch chan<- prometheus.Metric) {
 	// Simply delegate to the standard Collect method
-	a.Collector.Collect(ch)
+	a.Collect(ch)
 }
 
 // ContextCollectorWrapper wraps a CollectorWithContext to implement prometheus.Collector.

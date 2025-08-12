@@ -4,8 +4,6 @@
 package metrics
 
 import (
-	"time"
-
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -46,12 +44,6 @@ type noopSummary struct{}
 
 func (n *noopSummary) Observe(v float64) {}
 
-// noopTimer is a timer that does nothing
-type noopTimer struct{}
-
-func (n *noopTimer) Start() func()               { return func() {} }
-func (n *noopTimer) ObserveTime(d time.Duration) {}
-
 // noopCounterVec is a counter vector that does nothing
 type noopCounterVec struct{}
 
@@ -75,11 +67,6 @@ type noopSummaryVec struct{}
 
 func (n *noopSummaryVec) With(Labels) Summary               { return &noopSummary{} }
 func (n *noopSummaryVec) WithLabelValues(...string) Summary { return &noopSummary{} }
-
-// noopRegistry wraps a prometheus registry that does nothing
-type noopRegistry struct {
-	*prometheus.Registry
-}
 
 func newNoopRegistry() Registry {
 	return prometheus.NewRegistry()

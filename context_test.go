@@ -166,7 +166,9 @@ func TestCollectorFunc(t *testing.T) {
 	}
 
 	// Test CollectWithContext
-	ctx := context.WithValue(context.Background(), "test", "value")
+	type testKey string
+	const key testKey = "test"
+	ctx := context.WithValue(context.Background(), key, "value")
 	metricCh := make(chan prometheus.Metric, 1)
 	cf.CollectWithContext(ctx, metricCh)
 	close(metricCh)
@@ -175,7 +177,7 @@ func TestCollectorFunc(t *testing.T) {
 		t.Error("Collect function was not called")
 	}
 
-	if receivedContext.Value("test") != "value" {
+	if receivedContext.Value(key) != "value" {
 		t.Error("Context was not properly passed to collect function")
 	}
 }
@@ -200,7 +202,7 @@ func TestCollectorAdapter(t *testing.T) {
 
 	// Verify it implements both interfaces
 	var _ prometheus.Collector = adapted
-	var _ CollectorWithContext = adapted
+	var _ = adapted
 }
 
 // TestMultiGathererWithContext tests the multi-gatherer with context support
