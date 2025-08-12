@@ -12,21 +12,21 @@ type prometheusCounter struct {
 	counter prometheus.Counter
 }
 
-func (p *prometheusCounter) Inc()         { p.counter.Inc() }
+func (p *prometheusCounter) Inc()          { p.counter.Inc() }
 func (p *prometheusCounter) Add(v float64) { p.counter.Add(v) }
-func (p *prometheusCounter) Get() float64 { return 0 } // Prometheus doesn't expose current value
+func (p *prometheusCounter) Get() float64  { return 0 } // Prometheus doesn't expose current value
 
 // prometheusGauge wraps prometheus.Gauge
 type prometheusGauge struct {
 	gauge prometheus.Gauge
 }
 
-func (p *prometheusGauge) Set(v float64)  { p.gauge.Set(v) }
-func (p *prometheusGauge) Inc()           { p.gauge.Inc() }
-func (p *prometheusGauge) Dec()           { p.gauge.Dec() }
-func (p *prometheusGauge) Add(v float64)  { p.gauge.Add(v) }
-func (p *prometheusGauge) Sub(v float64)  { p.gauge.Sub(v) }
-func (p *prometheusGauge) Get() float64   { return 0 } // Prometheus doesn't expose current value
+func (p *prometheusGauge) Set(v float64) { p.gauge.Set(v) }
+func (p *prometheusGauge) Inc()          { p.gauge.Inc() }
+func (p *prometheusGauge) Dec()          { p.gauge.Dec() }
+func (p *prometheusGauge) Add(v float64) { p.gauge.Add(v) }
+func (p *prometheusGauge) Sub(v float64) { p.gauge.Sub(v) }
+func (p *prometheusGauge) Get() float64  { return 0 } // Prometheus doesn't expose current value
 
 // prometheusHistogram wraps prometheus.Histogram
 type prometheusHistogram struct {

@@ -19,7 +19,7 @@ import (
 // timeout/cancellation and request-scoped values.
 type CollectorWithContext interface {
 	prometheus.Collector // Embeds the base interface for compatibility
-	
+
 	// CollectWithContext works like Collect but accepts a context for
 	// timeout/cancellation and request-scoped values.
 	CollectWithContext(ctx context.Context, ch chan<- prometheus.Metric)
@@ -29,7 +29,7 @@ type CollectorWithContext interface {
 // timeout/cancellation propagation and request-scoped values.
 type GathererWithContext interface {
 	prometheus.Gatherer // Embeds the base interface for compatibility
-	
+
 	// GatherWithContext works like Gather but accepts a context for
 	// timeout/cancellation and request-scoped values.
 	GatherWithContext(ctx context.Context) ([]*dto.MetricFamily, error)
@@ -74,20 +74,20 @@ func (r *ContextRegistry) Register(c prometheus.Collector) error {
 
 	// Check if it's a context-aware collector
 	_, isContext := c.(CollectorWithContext)
-	
+
 	// Get descriptors to validate the collector
 	descChan := make(chan *prometheus.Desc, 16)
 	go func() {
 		c.Describe(descChan)
 		close(descChan)
 	}()
-	
+
 	// Collect all descriptors
 	var descs []*prometheus.Desc
 	for desc := range descChan {
 		descs = append(descs, desc)
 	}
-	
+
 	// If pedantic mode, check for duplicates
 	if r.pedantic {
 		for _, existing := range r.collectors {
@@ -96,7 +96,7 @@ func (r *ContextRegistry) Register(c prometheus.Collector) error {
 				existing.collector.Describe(existingDescChan)
 				close(existingDescChan)
 			}()
-			
+
 			for existingDesc := range existingDescChan {
 				for _, newDesc := range descs {
 					if existingDesc.String() == newDesc.String() {
@@ -106,7 +106,7 @@ func (r *ContextRegistry) Register(c prometheus.Collector) error {
 			}
 		}
 	}
-	
+
 	// Register the collector
 	entry := collectorEntry{
 		id:        r.nextID,
@@ -115,7 +115,7 @@ func (r *ContextRegistry) Register(c prometheus.Collector) error {
 	}
 	r.collectors[r.nextID] = entry
 	r.nextID++
-	
+
 	return nil
 }
 
@@ -132,7 +132,7 @@ func (r *ContextRegistry) MustRegister(cs ...prometheus.Collector) {
 func (r *ContextRegistry) Unregister(c prometheus.Collector) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	
+
 	for id, entry := range r.collectors {
 		if entry.collector == c {
 			delete(r.collectors, id)
@@ -155,19 +155,19 @@ func (r *ContextRegistry) GatherWithContext(ctx context.Context) ([]*dto.MetricF
 		collectors = append(collectors, entry)
 	}
 	r.mu.RUnlock()
-	
+
 	// Check if context is already canceled
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
-	
+
 	// Channel for receiving metrics from collectors
 	metricCh := make(chan prometheus.Metric, 1024)
 	var wg sync.WaitGroup
-	
+
 	// Error channel for collector errors
 	errCh := make(chan error, len(collectors))
-	
+
 	// Start collectors in parallel
 	for _, entry := range collectors {
 		// Check context before starting each collector
@@ -175,7 +175,7 @@ func (r *ContextRegistry) GatherWithContext(ctx context.Context) ([]*dto.MetricF
 			close(metricCh)
 			return nil, ctx.Err()
 		}
-		
+
 		wg.Add(1)
 		go func(e collectorEntry) {
 			defer wg.Done()
@@ -184,11 +184,11 @@ func (r *ContextRegistry) GatherWithContext(ctx context.Context) ([]*dto.MetricF
 					errCh <- fmt.Errorf("collector panicked: %v", r)
 				}
 			}()
-			
+
 			// Create a collector-specific channel
 			collectorCh := make(chan prometheus.Metric, 256)
 			done := make(chan struct{})
-			
+
 			// Forward metrics from collector channel to main channel
 			go func() {
 				for metric := range collectorCh {
@@ -200,7 +200,7 @@ func (r *ContextRegistry) GatherWithContext(ctx context.Context) ([]*dto.MetricF
 				}
 				close(done)
 			}()
-			
+
 			// Call the appropriate collect method
 			if e.isContext {
 				if cwc, ok := e.collector.(CollectorWithContext); ok {
@@ -209,22 +209,22 @@ func (r *ContextRegistry) GatherWithContext(ctx context.Context) ([]*dto.MetricF
 			} else {
 				e.collector.Collect(collectorCh)
 			}
-			
+
 			close(collectorCh)
 			<-done
 		}(entry)
 	}
-	
+
 	// Wait for all collectors to finish and close the metric channel
 	go func() {
 		wg.Wait()
 		close(metricCh)
 		close(errCh)
 	}()
-	
+
 	// Collect metrics into families
 	metricFamilies := make(map[string]*dto.MetricFamily)
-	
+
 	for metric := range metricCh {
 		// Check context periodically
 		select {
@@ -232,22 +232,22 @@ func (r *ContextRegistry) GatherWithContext(ctx context.Context) ([]*dto.MetricF
 			return nil, ctx.Err()
 		default:
 		}
-		
+
 		// Convert metric to DTO
 		dtoMetric := &dto.Metric{}
 		if err := metric.Write(dtoMetric); err != nil {
 			return nil, fmt.Errorf("error writing metric: %w", err)
 		}
-		
+
 		// Get metric descriptor
 		desc := metric.Desc()
-		
+
 		// Extract the fully qualified name from the descriptor
 		// We need to parse the descriptor string to get the actual metric name
 		// The descriptor string format is: Desc{fqName: "name", help: "...", ...}
 		descString := desc.String()
 		var fqName string
-		
+
 		// Parse the fqName from the descriptor string
 		if idx := strings.Index(descString, `fqName: "`); idx >= 0 {
 			start := idx + len(`fqName: "`)
@@ -255,27 +255,27 @@ func (r *ContextRegistry) GatherWithContext(ctx context.Context) ([]*dto.MetricF
 				fqName = descString[start : start+end]
 			}
 		}
-		
+
 		// If we couldn't parse it, use the whole string as fallback
 		if fqName == "" {
 			fqName = descString
 		}
-		
+
 		// Get or create metric family
 		mf, exists := metricFamilies[fqName]
 		if !exists {
 			mf = &dto.MetricFamily{
 				Name: proto.String(fqName),
-				Help: proto.String(""), // Would be extracted from descriptor
+				Help: proto.String(""),              // Would be extracted from descriptor
 				Type: dto.MetricType_UNTYPED.Enum(), // Would be determined from metric type
 			}
 			metricFamilies[fqName] = mf
 		}
-		
+
 		// Add metric to family
 		mf.Metric = append(mf.Metric, dtoMetric)
 	}
-	
+
 	// Check for collector errors
 	select {
 	case err := <-errCh:
@@ -284,18 +284,18 @@ func (r *ContextRegistry) GatherWithContext(ctx context.Context) ([]*dto.MetricF
 		}
 	default:
 	}
-	
+
 	// Convert map to sorted slice
 	result := make([]*dto.MetricFamily, 0, len(metricFamilies))
 	for _, mf := range metricFamilies {
 		result = append(result, mf)
 	}
-	
+
 	// Sort by name for consistent output
 	sort.Slice(result, func(i, j int) bool {
 		return *result[i].Name < *result[j].Name
 	})
-	
+
 	return result, nil
 }
 
@@ -400,11 +400,11 @@ func (f GathererWithContextFunc) Gather() ([]*dto.MetricFamily, error) {
 // MultiGathererWithContext extends MultiGatherer with context support.
 type MultiGathererWithContext interface {
 	GathererWithContext
-	
+
 	// Register adds the outputs of gatherer to the results of future calls to
 	// Gather with the provided namespace added to the metrics.
 	Register(namespace string, gatherer prometheus.Gatherer) error
-	
+
 	// Deregister removes the outputs of a gatherer with namespace from the results
 	// of future calls to Gather.
 	Deregister(namespace string) bool
@@ -427,7 +427,7 @@ func NewMultiGathererWithContext() MultiGathererWithContext {
 func (g *multiGathererWithContext) Register(namespace string, gatherer prometheus.Gatherer) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	
+
 	if _, exists := g.gatherers[namespace]; exists {
 		return fmt.Errorf("gatherer already registered for namespace: %s", namespace)
 	}
@@ -439,7 +439,7 @@ func (g *multiGathererWithContext) Register(namespace string, gatherer prometheu
 func (g *multiGathererWithContext) Deregister(namespace string) bool {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	
+
 	_, exists := g.gatherers[namespace]
 	delete(g.gatherers, namespace)
 	return exists
@@ -458,36 +458,36 @@ func (g *multiGathererWithContext) GatherWithContext(ctx context.Context) ([]*dt
 		gatherers[k] = v
 	}
 	g.mu.RUnlock()
-	
+
 	var result []*dto.MetricFamily
 	for namespace, gatherer := range gatherers {
 		// Check context before gathering from each gatherer
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
-		
+
 		var metrics []*dto.MetricFamily
 		var err error
-		
+
 		// Use context-aware gathering if available
 		if gwc, ok := gatherer.(GathererWithContext); ok {
 			metrics, err = gwc.GatherWithContext(ctx)
 		} else {
 			metrics, err = gatherer.Gather()
 		}
-		
+
 		if err != nil {
 			return nil, fmt.Errorf("error gathering from namespace %s: %w", namespace, err)
 		}
-		
+
 		// Add namespace prefix to each metric
 		for _, mf := range metrics {
 			prefixedName := namespace + "_" + *mf.Name
 			mf.Name = &prefixedName
 		}
-		
+
 		result = append(result, metrics...)
 	}
-	
+
 	return result, nil
 }

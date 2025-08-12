@@ -37,9 +37,9 @@ type PrometheusValueType = prometheus.ValueType
 
 // Prometheus value types
 const (
-	CounterValue   PrometheusValueType = prometheus.CounterValue
-	GaugeValue     PrometheusValueType = prometheus.GaugeValue
-	UntypedValue   PrometheusValueType = prometheus.UntypedValue
+	CounterValue PrometheusValueType = prometheus.CounterValue
+	GaugeValue   PrometheusValueType = prometheus.GaugeValue
+	UntypedValue PrometheusValueType = prometheus.UntypedValue
 )
 
 // PrometheusMetricFamily is an alias for dto.MetricFamily
