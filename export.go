@@ -42,3 +42,8 @@ type HTTPHandlerOpts = promhttp.HandlerOpts
 
 // MetricFamilies is a slice of metric families
 type MetricFamilies = []*dto.MetricFamily
+
+// WrapPrometheusRegistry wraps a prometheus registry in our Registry interface
+func WrapPrometheusRegistry(promReg *prometheus.Registry) Registry {
+	return promReg
+}

@@ -126,7 +126,7 @@ func (n *noopMetrics) Registry() Registry {
 	return n.registry
 }
 
-func (n *noopMetrics) PrometheusRegistry() prometheus.Registerer {
+func (n *noopMetrics) PrometheusRegistry() interface{} {
 	return prometheus.NewRegistry()
 }
 
