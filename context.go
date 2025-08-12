@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -240,11 +241,25 @@ func (r *ContextRegistry) GatherWithContext(ctx context.Context) ([]*dto.MetricF
 		
 		// Get metric descriptor
 		desc := metric.Desc()
-		descString := desc.String()
 		
-		// Parse descriptor to get name and help (simplified)
-		// In production, you'd parse this more carefully
-		fqName := descString // This is simplified; real implementation would parse properly
+		// Extract the fully qualified name from the descriptor
+		// We need to parse the descriptor string to get the actual metric name
+		// The descriptor string format is: Desc{fqName: "name", help: "...", ...}
+		descString := desc.String()
+		var fqName string
+		
+		// Parse the fqName from the descriptor string
+		if idx := strings.Index(descString, `fqName: "`); idx >= 0 {
+			start := idx + len(`fqName: "`)
+			if end := strings.Index(descString[start:], `"`); end >= 0 {
+				fqName = descString[start : start+end]
+			}
+		}
+		
+		// If we couldn't parse it, use the whole string as fallback
+		if fqName == "" {
+			fqName = descString
+		}
 		
 		// Get or create metric family
 		mf, exists := metricFamilies[fqName]
