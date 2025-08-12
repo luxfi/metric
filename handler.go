@@ -206,9 +206,9 @@ func negotiateContentType(r *http.Request, enableOpenMetrics bool) string {
 func createEncoder(w io.Writer, contentType string) expfmt.Encoder {
 	if strings.Contains(contentType, "application/openmetrics-text") {
 		// OpenMetrics format - use text format for now as FmtOpenMetrics may not be available
-		return expfmt.NewEncoder(w, expfmt.FmtText)
+		return expfmt.NewEncoder(w, expfmt.NewFormat(expfmt.TypeTextPlain))
 	}
-	return expfmt.NewEncoder(w, expfmt.FmtText)
+	return expfmt.NewEncoder(w, expfmt.NewFormat(expfmt.TypeTextPlain))
 }
 
 // createErrorMetric creates a metric family representing an error.
