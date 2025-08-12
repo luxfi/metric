@@ -84,7 +84,6 @@ func HandlerForContext(gatherer GathererWithContext, opts HandlerOpts) http.Hand
 
 		// Gather metrics with context
 		mfs, err := gatherer.GatherWithContext(ctx)
-
 		// Handle errors based on ErrorHandling option
 		if err != nil {
 			if opts.ErrorLog != nil {
