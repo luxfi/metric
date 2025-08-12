@@ -7,6 +7,93 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+// prometheusCounter wraps prometheus.Counter
+type prometheusCounter struct {
+	counter prometheus.Counter
+}
+
+func (p *prometheusCounter) Inc()         { p.counter.Inc() }
+func (p *prometheusCounter) Add(v float64) { p.counter.Add(v) }
+func (p *prometheusCounter) Get() float64 { return 0 } // Prometheus doesn't expose current value
+
+// prometheusGauge wraps prometheus.Gauge
+type prometheusGauge struct {
+	gauge prometheus.Gauge
+}
+
+func (p *prometheusGauge) Set(v float64)  { p.gauge.Set(v) }
+func (p *prometheusGauge) Inc()           { p.gauge.Inc() }
+func (p *prometheusGauge) Dec()           { p.gauge.Dec() }
+func (p *prometheusGauge) Add(v float64)  { p.gauge.Add(v) }
+func (p *prometheusGauge) Sub(v float64)  { p.gauge.Sub(v) }
+func (p *prometheusGauge) Get() float64   { return 0 } // Prometheus doesn't expose current value
+
+// prometheusHistogram wraps prometheus.Histogram
+type prometheusHistogram struct {
+	histogram prometheus.Histogram
+}
+
+func (p *prometheusHistogram) Observe(v float64) { p.histogram.Observe(v) }
+
+// prometheusSummary wraps prometheus.Summary
+type prometheusSummary struct {
+	summary prometheus.Summary
+}
+
+func (p *prometheusSummary) Observe(v float64) { p.summary.Observe(v) }
+
+// prometheusCounterVec wraps prometheus.CounterVec
+type prometheusCounterVec struct {
+	vec *prometheus.CounterVec
+}
+
+func (p *prometheusCounterVec) With(labels Labels) Counter {
+	return &prometheusCounter{counter: p.vec.With(prometheus.Labels(labels))}
+}
+
+func (p *prometheusCounterVec) WithLabelValues(labelValues ...string) Counter {
+	return &prometheusCounter{counter: p.vec.WithLabelValues(labelValues...)}
+}
+
+// prometheusGaugeVec wraps prometheus.GaugeVec
+type prometheusGaugeVec struct {
+	vec *prometheus.GaugeVec
+}
+
+func (p *prometheusGaugeVec) With(labels Labels) Gauge {
+	return &prometheusGauge{gauge: p.vec.With(prometheus.Labels(labels))}
+}
+
+func (p *prometheusGaugeVec) WithLabelValues(labelValues ...string) Gauge {
+	return &prometheusGauge{gauge: p.vec.WithLabelValues(labelValues...)}
+}
+
+// prometheusHistogramVec wraps prometheus.HistogramVec
+type prometheusHistogramVec struct {
+	vec *prometheus.HistogramVec
+}
+
+func (p *prometheusHistogramVec) With(labels Labels) Histogram {
+	return &prometheusHistogram{histogram: p.vec.With(prometheus.Labels(labels)).(prometheus.Histogram)}
+}
+
+func (p *prometheusHistogramVec) WithLabelValues(labelValues ...string) Histogram {
+	return &prometheusHistogram{histogram: p.vec.WithLabelValues(labelValues...).(prometheus.Histogram)}
+}
+
+// prometheusSummaryVec wraps prometheus.SummaryVec
+type prometheusSummaryVec struct {
+	vec *prometheus.SummaryVec
+}
+
+func (p *prometheusSummaryVec) With(labels Labels) Summary {
+	return &prometheusSummary{summary: p.vec.With(prometheus.Labels(labels)).(prometheus.Summary)}
+}
+
+func (p *prometheusSummaryVec) WithLabelValues(labelValues ...string) Summary {
+	return &prometheusSummary{summary: p.vec.WithLabelValues(labelValues...).(prometheus.Summary)}
+}
+
 // prometheusMetrics implements Metrics using prometheus
 type prometheusMetrics struct {
 	namespace string
@@ -20,7 +107,7 @@ func (p *prometheusMetrics) NewCounter(name, help string) Counter {
 		Help:      help,
 	})
 	p.registry.MustRegister(counter)
-	return counter
+	return &prometheusCounter{counter: counter}
 }
 
 func (p *prometheusMetrics) NewCounterVec(name, help string, labelNames []string) CounterVec {
@@ -30,7 +117,7 @@ func (p *prometheusMetrics) NewCounterVec(name, help string, labelNames []string
 		Help:      help,
 	}, labelNames)
 	p.registry.MustRegister(vec)
-	return vec
+	return &prometheusCounterVec{vec: vec}
 }
 
 func (p *prometheusMetrics) NewGauge(name, help string) Gauge {
@@ -40,7 +127,7 @@ func (p *prometheusMetrics) NewGauge(name, help string) Gauge {
 		Help:      help,
 	})
 	p.registry.MustRegister(gauge)
-	return gauge
+	return &prometheusGauge{gauge: gauge}
 }
 
 func (p *prometheusMetrics) NewGaugeVec(name, help string, labelNames []string) GaugeVec {
@@ -50,7 +137,7 @@ func (p *prometheusMetrics) NewGaugeVec(name, help string, labelNames []string) 
 		Help:      help,
 	}, labelNames)
 	p.registry.MustRegister(vec)
-	return vec
+	return &prometheusGaugeVec{vec: vec}
 }
 
 func (p *prometheusMetrics) NewHistogram(name, help string, buckets []float64) Histogram {
@@ -61,7 +148,7 @@ func (p *prometheusMetrics) NewHistogram(name, help string, buckets []float64) H
 		Buckets:   buckets,
 	})
 	p.registry.MustRegister(histogram)
-	return histogram
+	return &prometheusHistogram{histogram: histogram}
 }
 
 func (p *prometheusMetrics) NewHistogramVec(name, help string, labelNames []string, buckets []float64) HistogramVec {
@@ -72,7 +159,7 @@ func (p *prometheusMetrics) NewHistogramVec(name, help string, labelNames []stri
 		Buckets:   buckets,
 	}, labelNames)
 	p.registry.MustRegister(vec)
-	return vec
+	return &prometheusHistogramVec{vec: vec}
 }
 
 func (p *prometheusMetrics) NewSummary(name, help string, objectives map[float64]float64) Summary {
@@ -83,7 +170,7 @@ func (p *prometheusMetrics) NewSummary(name, help string, objectives map[float64
 		Objectives: objectives,
 	})
 	p.registry.MustRegister(summary)
-	return summary
+	return &prometheusSummary{summary: summary}
 }
 
 func (p *prometheusMetrics) NewSummaryVec(name, help string, labelNames []string, objectives map[float64]float64) SummaryVec {
@@ -94,7 +181,7 @@ func (p *prometheusMetrics) NewSummaryVec(name, help string, labelNames []string
 		Objectives: objectives,
 	}, labelNames)
 	p.registry.MustRegister(vec)
-	return vec
+	return &prometheusSummaryVec{vec: vec}
 }
 
 func (p *prometheusMetrics) Registry() Registry {
