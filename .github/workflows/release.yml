@@ -80,4 +80,4 @@ jobs:
 
     - name: Update Go Module Index
       run: |
-        curl -X POST https://proxy.golang.org/github.com/luxfi/metrics/@v/${{ github.ref_name }}.info
+        curl -X POST https://proxy.golang.org/github.com/luxfi/metric/@v/${{ github.ref_name }}.info
