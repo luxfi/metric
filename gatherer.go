@@ -73,8 +73,9 @@ func (g *multiGatherer) Deregister(namespace string) bool {
 	return exists
 }
 
-// MakeAndRegister creates a new prometheus registry and registers it with the gatherer
-func MakeAndRegister(gatherer MultiGatherer, namespace string) (*prometheus.Registry, error) {
+// MakeAndRegister creates a new registry and registers it with the gatherer
+// Returns our Registry alias which is just *prometheus.Registry
+func MakeAndRegister(gatherer MultiGatherer, namespace string) (Registry, error) {
 	reg := prometheus.NewRegistry()
 	if err := gatherer.Register(namespace, reg); err != nil {
 		return nil, fmt.Errorf("couldn't register %q metrics: %w", namespace, err)

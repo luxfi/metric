@@ -126,24 +126,35 @@ type prometheusRegistry struct {
 	registry *prometheus.Registry
 }
 
-func (p *prometheusRegistry) Register(c Collector) error {
-	// Note: This requires a type assertion or adapter
-	// In practice, you'd need to implement a proper adapter
+func (p *prometheusRegistry) Register(c interface{}) error {
+	if pc, ok := c.(prometheus.Collector); ok {
+		return p.registry.Register(pc)
+	}
+	// Try to convert our Collector to prometheus.Collector
+	if _, ok := c.(Collector); ok {
+		// For now, just ignore our custom collectors in prometheus registry
+		return nil
+	}
 	return nil
 }
 
-func (p *prometheusRegistry) MustRegister(c Collector) {
-	// Note: This requires a type assertion or adapter
+func (p *prometheusRegistry) MustRegister(cs ...interface{}) {
+	for _, c := range cs {
+		if err := p.Register(c); err != nil {
+			panic(err)
+		}
+	}
 }
 
-func (p *prometheusRegistry) Unregister(c Collector) bool {
-	// Note: This requires a type assertion or adapter
-	return true
+func (p *prometheusRegistry) Unregister(c interface{}) bool {
+	if pc, ok := c.(prometheus.Collector); ok {
+		return p.registry.Unregister(pc)
+	}
+	return false
 }
 
 func (p *prometheusRegistry) Gather() ([]*MetricFamily, error) {
-	// Note: This would need to convert from prometheus format
-	return nil, nil
+	return p.registry.Gather()
 }
 
 // prometheusMetrics implements Metrics using prometheus
