@@ -248,12 +248,9 @@ func (p *prometheusMetrics) NewSummaryVec(name, help string, labelNames []string
 }
 
 func (p *prometheusMetrics) Registry() Registry {
-	return &prometheusRegistry{registry: p.registry}
-}
-
-func (p *prometheusMetrics) PrometheusRegistry() prometheus.Registerer {
 	return p.registry
 }
+
 
 // prometheusFactory creates prometheus-backed metrics
 type prometheusFactory struct {
@@ -316,16 +313,13 @@ func PrometheusHandler(registry *prometheus.Registry) http.Handler {
 	return promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
 }
 
-// WrapPrometheusRegistry wraps a prometheus registry in our Registry interface
+// WrapPrometheusRegistry returns the prometheus registry as our Registry alias
 func WrapPrometheusRegistry(promReg *prometheus.Registry) Registry {
-	return &prometheusRegistry{registry: promReg}
+	return promReg
 }
 
-// UnwrapPrometheusRegistry extracts the prometheus registry from our Registry interface
+// UnwrapPrometheusRegistry extracts the prometheus registry from our Registry alias
+// Since Registry is already *prometheus.Registry, just return it
 func UnwrapPrometheusRegistry(reg Registry) (*prometheus.Registry, bool) {
-	promReg, ok := reg.(*prometheusRegistry)
-	if !ok {
-		return nil, false
-	}
-	return promReg.registry, true
+	return reg, true
 }

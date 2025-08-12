@@ -145,7 +145,7 @@ func NewNoOp() Metrics {
 
 // NewNoOpRegistry creates a no-op registry for testing
 func NewNoOpRegistry() Registry {
-	return &noopRegistry{}
+	return newNoopRegistry()
 }
 
 // NewGauge creates a new standalone gauge metric
@@ -178,7 +178,7 @@ func NewNoOpFactory() Factory {
 
 func (f *noopFactory) New(namespace string) Metrics {
 	return &noopMetrics{
-		registry: &noopRegistry{},
+		registry: newNoopRegistry(),
 	}
 }
 
