@@ -8,7 +8,6 @@ import (
 	"time"
 	
 	"github.com/prometheus/client_golang/prometheus"
-	dto "github.com/prometheus/client_model/go"
 )
 
 // Counter is a metric that can only increase
@@ -60,27 +59,98 @@ type Timer interface {
 // Labels represents a set of label key-value pairs
 type Labels map[string]string
 
-// Registerer is an alias for prometheus.Registerer
-type Registerer = prometheus.Registerer
+// Registerer registers metrics collectors
+type Registerer interface {
+	// Register registers a new collector
+	Register(Collector) error
+	// MustRegister registers a new collector and panics if it fails
+	MustRegister(Collector)
+	// Unregister unregisters a collector
+	Unregister(Collector) bool
+}
 
-// Gatherer is an alias for prometheus.Gatherer  
-type Gatherer = prometheus.Gatherer
+// Gatherer gathers metrics from all registered collectors
+type Gatherer interface {
+	// Gather gathers metrics from all registered collectors
+	Gather() ([]*MetricFamily, error)
+}
 
-// MetricFamily alias for dto.MetricFamily
-type MetricFamily = dto.MetricFamily
 
-// Registry is an alias for prometheus.Registry to keep it internal
-// We use prometheus.Registry directly but alias it to avoid external dependencies
-type Registry = *prometheus.Registry
+// Registry is both a Registerer and a Gatherer
+type Registry interface {
+	Registerer
+	Gatherer
+}
 
-// Collector is an alias for prometheus.Collector
-type Collector = prometheus.Collector
+// Collector collects metrics
+type Collector interface {
+	// Describe sends all descriptors of metrics to the channel
+	Describe(chan<- *Desc)
+	// Collect sends all metrics to the channel
+	Collect(chan<- Metric)
+}
 
-// Metric is an alias for prometheus.Metric
-type Metric = prometheus.Metric
+// Metric represents a single metric value
+type Metric interface {
+	// Desc returns the descriptor for this metric
+	Desc() *Desc
+	// Write writes the metric to the given writer
+	Write(*MetricDTO) error
+}
 
-// Desc is an alias for prometheus.Desc
-type Desc = *prometheus.Desc
+// Desc describes a metric
+type Desc struct {
+	// FQName is the fully qualified name of the metric
+	FQName string
+	// Help is the help text for the metric
+	Help string
+	// ConstLabels are labels that never change
+	ConstLabels Labels
+	// VariableLabels are the names of labels that can change
+	VariableLabels []string
+}
+
+// MetricDTO is a data transfer object for metrics
+type MetricDTO struct {
+	// Name is the metric name
+	Name string
+	// Help is the help text
+	Help string
+	// Type is the metric type
+	Type MetricType
+	// Value is the metric value
+	Value float64
+	// Labels are the metric labels
+	Labels Labels
+	// Timestamp is when the metric was collected
+	Timestamp time.Time
+}
+
+// MetricType represents the type of a metric
+type MetricType int
+
+const (
+	// CounterType is a counter metric
+	CounterType MetricType = iota
+	// GaugeType is a gauge metric
+	GaugeType
+	// HistogramType is a histogram metric
+	HistogramType
+	// SummaryType is a summary metric
+	SummaryType
+)
+
+// MetricFamily is a collection of metrics with the same name
+type MetricFamily struct {
+	// Name is the metric family name
+	Name string
+	// Help is the help text
+	Help string
+	// Type is the metric type
+	Type MetricType
+	// Metrics are the individual metrics
+	Metrics []Metric
+}
 
 // Metrics is the main interface for creating metrics
 type Metrics interface {
@@ -106,6 +176,9 @@ type Metrics interface {
 	
 	// Registry returns the underlying registry
 	Registry() Registry
+	
+	// PrometheusRegistry returns a prometheus-compatible registerer
+	PrometheusRegistry() prometheus.Registerer
 }
 
 // CounterVec is a vector of counters
@@ -148,8 +221,8 @@ type Factory interface {
 	NewWithRegistry(namespace string, registry Registry) Metrics
 }
 
-// MetricsHTTPHandler handles HTTP requests for metrics
-type MetricsHTTPHandler interface {
+// HTTPHandler handles HTTP requests for metrics
+type HTTPHandler interface {
 	// ServeHTTP handles an HTTP request
 	ServeHTTP(w ResponseWriter, r *Request)
 }
@@ -192,3 +265,10 @@ func NewWithRegistry(namespace string, registry Registry) Metrics {
 	return defaultFactory.NewWithRegistry(namespace, registry)
 }
 
+// MakeAndRegister creates a new metrics registry that gathers metrics from the provided gatherer
+// This is used to bridge between different metrics systems
+func MakeAndRegister(gatherer interface{}, namespace string) (Registry, error) {
+	// For now, just return the PrometheusRegistry
+	// In the future this could do more sophisticated mapping with the gatherer
+	return PrometheusRegistry(), nil
+}
