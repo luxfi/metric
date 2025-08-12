@@ -4,7 +4,6 @@
 package metrics
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus"
