@@ -1,4 +1,4 @@
-module github.com/luxfi/metric
+module github.com/luxfi/metrics
 
 go 1.24.5
 
