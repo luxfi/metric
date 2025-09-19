@@ -1,7 +1,7 @@
 // Copyright (C) 2020-2025, Lux Industries Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
-package metrics
+package metric
 
 import (
 	"net/http"
@@ -14,10 +14,8 @@ import (
 
 // Export prometheus types that are needed by the node
 
-// NewPrometheusRegistry creates a new prometheus registry
-func NewPrometheusRegistry() Registry {
-	return prometheus.NewRegistry()
-}
+// NewRegistry creates a new registry (internal implementation uses Prometheus)
+// This is already exported via the var declaration in metric.go
 
 // ProcessCollectorOpts are options for the process collector
 type ProcessCollectorOpts = collectors.ProcessCollectorOpts
