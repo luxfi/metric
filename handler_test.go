@@ -148,7 +148,7 @@ func TestWithMaxRequestsInFlight(t *testing.T) {
 }
 
 func TestInstrumentMetricHandler(t *testing.T) {
-	t.Skip("InstrumentMetricHandler requires specific label configuration")
+// 	// // REMOVED: Test must run
 	// Create a simple handler
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

@@ -195,7 +195,7 @@ test_gauge 100
 	if err != nil {
 		// Text format parsing might not be supported, skip if error contains "expected"
 		if strings.Contains(err.Error(), "expected") {
-			t.Skip("Text format parsing not supported")
+// 			// // REMOVED: Test must run
 		}
 		t.Fatalf("Failed to get metrics: %v", err)
 	}
