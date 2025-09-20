@@ -75,8 +75,8 @@ func TestContextRegistryWithContext(t *testing.T) {
 func TestContextRegistryTimeout(t *testing.T) {
 	reg := NewContextRegistry()
 
-	// Create a slow collector
-	slowCollector := &testSlowCollector{
+	// Create a context-aware slow collector
+	slowCollector := &testSlowContextCollector{
 		delay: 2 * time.Second,
 		name:  "slow_metric",
 	}
@@ -326,6 +326,40 @@ func (c *testSlowCollector) Collect(ch chan<- prometheus.Metric) {
 		1.0,
 	)
 	ch <- metric
+}
+
+// testSlowContextCollector is a context-aware test collector that takes time to collect
+type testSlowContextCollector struct {
+	delay time.Duration
+	name  string
+}
+
+func (c *testSlowContextCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- prometheus.NewDesc(c.name, "Slow metric", nil, nil)
+}
+
+func (c *testSlowContextCollector) Collect(ch chan<- prometheus.Metric) {
+	c.CollectWithContext(context.Background(), ch)
+}
+
+func (c *testSlowContextCollector) CollectWithContext(ctx context.Context, ch chan<- prometheus.Metric) {
+	// Use a timer that can be cancelled
+	timer := time.NewTimer(c.delay)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		// Context was cancelled/timed out, return immediately
+		return
+	case <-timer.C:
+		// Timer completed, send the metric
+		metric, _ := prometheus.NewConstMetric(
+			prometheus.NewDesc(c.name, "Slow metric", nil, nil),
+			prometheus.GaugeValue,
+			1.0,
+		)
+		ch <- metric
+	}
 }
 
 // testCancellableCollector is a test collector that respects cancellation
