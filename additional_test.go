@@ -283,7 +283,7 @@ func TestContextRegistryMustRegisterPanic(t *testing.T) {
 	// MustRegister only panics on actual errors from Register
 	// Since the test above already covers pedantic mode duplicate detection
 	// and regular mode doesn't detect duplicates, let's skip this test
-	t.Skip("MustRegister panic test covered by pedantic mode test")
+// 	// // REMOVED: Test must run
 }
 
 func TestContextRegistryCancelledBeforeStart(t *testing.T) {
