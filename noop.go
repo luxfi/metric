@@ -134,23 +134,23 @@ func NewNoOpRegistry() Registry {
 	return newNoopRegistry()
 }
 
-// NewGauge creates a new standalone gauge metric
-func NewGauge(name string) Gauge {
+// NewNoopGauge creates a new standalone gauge metric
+func NewNoopGauge(name string) Gauge {
 	return &noopGauge{}
 }
 
-// NewHistogram creates a new standalone histogram metric
-func NewHistogram(name string) Histogram {
+// NewNoopHistogram creates a new standalone histogram metric
+func NewNoopHistogram(name string) Histogram {
 	return &noopHistogram{}
 }
 
-// NewCounter creates a new standalone counter metric
-func NewCounter(name string) Counter {
+// NewNoopCounter creates a new standalone counter metric
+func NewNoopCounter(name string) Counter {
 	return &noopCounter{}
 }
 
-// NewSummary creates a new standalone summary metric
-func NewSummary(name string) Summary {
+// NewNoopSummary creates a new standalone summary metric
+func NewNoopSummary(name string) Summary {
 	return &noopSummary{}
 }
 
