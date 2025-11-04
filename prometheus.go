@@ -105,6 +105,10 @@ func (p *prometheusHistogramVec) WithLabelValues(labelValues ...string) Histogra
 	return &prometheusHistogram{histogram: p.vec.WithLabelValues(labelValues...).(prometheus.Histogram)}
 }
 
+// Implement prometheus.Collector interface
+func (p *prometheusHistogramVec) Describe(ch chan<- *prometheus.Desc) { p.vec.Describe(ch) }
+func (p *prometheusHistogramVec) Collect(ch chan<- prometheus.Metric)  { p.vec.Collect(ch) }
+
 // prometheusSummaryVec wraps prometheus.SummaryVec
 type prometheusSummaryVec struct {
 	vec *prometheus.SummaryVec
