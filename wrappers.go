@@ -22,9 +22,14 @@ func WrapPrometheusCounterVec(cv *prometheus.CounterVec) CounterVec {
 	return &prometheusCounterVec{vec: cv}
 }
 
-// WrapPrometheusGaugeVec wraps a prometheus.GaugeVec to implement our GaugeVec interface  
+// WrapPrometheusGaugeVec wraps a prometheus.GaugeVec to implement our GaugeVec interface
 func WrapPrometheusGaugeVec(gv *prometheus.GaugeVec) GaugeVec {
 	return &prometheusGaugeVec{vec: gv}
+}
+
+// WrapPrometheusHistogramVec wraps a prometheus.HistogramVec to implement our HistogramVec interface
+func WrapPrometheusHistogramVec(hv *prometheus.HistogramVec) HistogramVec {
+	return &prometheusHistogramVec{vec: hv}
 }
 
 // NewCounterWithOpts creates a wrapped counter from options

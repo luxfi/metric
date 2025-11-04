@@ -9,6 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/prometheus/common/expfmt"
 	dto "github.com/prometheus/client_model/go"
 )
 
@@ -40,6 +41,15 @@ type HTTPHandlerOpts = promhttp.HandlerOpts
 
 // MetricFamilies is a slice of metric families
 type MetricFamilies = []*dto.MetricFamily
+
+// DTOMetricFamily is an alias for dto.MetricFamily for backward compatibility
+type DTOMetricFamily = dto.MetricFamily
+
+// TextParser is an alias for expfmt.TextParser
+type TextParser = expfmt.TextParser
+
+// NewPrometheusRegistry is an alias for NewRegistry for backward compatibility
+var NewPrometheusRegistry = NewRegistry
 
 // WrapPrometheusRegistry wraps a prometheus registry in our Registry interface
 func WrapPrometheusRegistry(promReg *prometheus.Registry) Registry {
