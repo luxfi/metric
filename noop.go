@@ -67,6 +67,8 @@ type noopHistogramVec struct{}
 
 func (n *noopHistogramVec) With(Labels) Histogram               { return &noopHistogram{} }
 func (n *noopHistogramVec) WithLabelValues(...string) Histogram { return &noopHistogram{} }
+func (n *noopHistogramVec) Describe(ch chan<- *prometheus.Desc)       {}
+func (n *noopHistogramVec) Collect(ch chan<- prometheus.Metric)        {}
 
 // noopSummaryVec is a summary vector that does nothing
 type noopSummaryVec struct{}

@@ -135,6 +135,7 @@ type GaugeVec interface {
 
 // HistogramVec is a vector of histograms
 type HistogramVec interface {
+	prometheus.Collector
 	// With returns a histogram with the given label values
 	With(Labels) Histogram
 	// WithLabelValues returns a histogram with the given label values
@@ -227,10 +228,13 @@ func NewGaugeVec(opts GaugeOpts, labelNames []string) GaugeVec {
 	return WrapPrometheusGaugeVec(prometheus.NewGaugeVec(opts, labelNames))
 }
 
+func NewHistogramVec(opts HistogramOpts, labelNames []string) HistogramVec {
+	return WrapPrometheusHistogramVec(prometheus.NewHistogramVec(opts, labelNames))
+}
+
 // Keep these as direct aliases since they don't need wrapping
 var (
 	NewHistogram       = prometheus.NewHistogram
-	NewHistogramVec    = prometheus.NewHistogramVec
 	NewSummary         = prometheus.NewSummary
 	NewSummaryVec      = prometheus.NewSummaryVec
 	NewRegistry        = prometheus.NewRegistry
