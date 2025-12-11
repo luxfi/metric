@@ -293,7 +293,7 @@ func InstrumentMetricHandler(reg prometheus.Registerer, handler http.Handler) ht
 			Help:    "Histogram of latencies for HTTP requests.",
 			Buckets: prometheus.DefBuckets,
 		},
-		[]string{"handler"},
+		[]string{"code"},
 	)
 
 	// Register metrics
