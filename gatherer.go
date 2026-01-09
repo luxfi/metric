@@ -26,6 +26,12 @@ type MultiGatherer interface {
 	Deregister(namespace string) bool
 }
 
+// Gatherer aliases the Prometheus Gatherer interface.
+type Gatherer = prometheus.Gatherer
+
+// MetricFamily aliases the Prometheus metric family type.
+type MetricFamily = dto.MetricFamily
+
 // NewMultiGatherer returns a new MultiGatherer that merges metrics by namespace
 func NewMultiGatherer() MultiGatherer {
 	return &multiGatherer{

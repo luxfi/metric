@@ -37,10 +37,10 @@ func NewAveragerWithErrs(name, desc string, reg Registerer, errs *Errs) Averager
 		}),
 	}
 
-	if err := reg.Register(a.count); err != nil {
+	if err := reg.Register(AsCollector(a.count)); err != nil {
 		errs.Add(fmt.Errorf("%w: %w", ErrFailedRegistering, err))
 	}
-	if err := reg.Register(a.sum); err != nil {
+	if err := reg.Register(AsCollector(a.sum)); err != nil {
 		errs.Add(fmt.Errorf("%w: %w", ErrFailedRegistering, err))
 	}
 	return &a
