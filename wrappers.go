@@ -17,6 +17,16 @@ func WrapPrometheusGauge(g prometheus.Gauge) Gauge {
 	return &prometheusGauge{gauge: g}
 }
 
+// WrapPrometheusHistogram wraps a prometheus.Histogram to implement our Histogram interface
+func WrapPrometheusHistogram(h prometheus.Histogram) Histogram {
+	return &prometheusHistogram{histogram: h}
+}
+
+// WrapPrometheusSummary wraps a prometheus.Summary to implement our Summary interface
+func WrapPrometheusSummary(s prometheus.Summary) Summary {
+	return &prometheusSummary{summary: s}
+}
+
 // WrapPrometheusCounterVec wraps a prometheus.CounterVec to implement our CounterVec interface
 func WrapPrometheusCounterVec(cv *prometheus.CounterVec) CounterVec {
 	return &prometheusCounterVec{vec: cv}
@@ -32,6 +42,11 @@ func WrapPrometheusHistogramVec(hv *prometheus.HistogramVec) HistogramVec {
 	return &prometheusHistogramVec{vec: hv}
 }
 
+// WrapPrometheusSummaryVec wraps a prometheus.SummaryVec to implement our SummaryVec interface
+func WrapPrometheusSummaryVec(sv *prometheus.SummaryVec) SummaryVec {
+	return &prometheusSummaryVec{vec: sv}
+}
+
 // NewCounterWithOpts creates a wrapped counter from options
 func NewCounterWithOpts(opts prometheus.CounterOpts) Counter {
 	return WrapPrometheusCounter(prometheus.NewCounter(opts))
@@ -40,6 +55,16 @@ func NewCounterWithOpts(opts prometheus.CounterOpts) Counter {
 // NewGaugeWithOpts creates a wrapped gauge from options
 func NewGaugeWithOpts(opts prometheus.GaugeOpts) Gauge {
 	return WrapPrometheusGauge(prometheus.NewGauge(opts))
+}
+
+// NewHistogramWithOpts creates a wrapped histogram from options
+func NewHistogramWithOpts(opts prometheus.HistogramOpts) Histogram {
+	return WrapPrometheusHistogram(prometheus.NewHistogram(opts))
+}
+
+// NewSummaryWithOpts creates a wrapped summary from options
+func NewSummaryWithOpts(opts prometheus.SummaryOpts) Summary {
+	return WrapPrometheusSummary(prometheus.NewSummary(opts))
 }
 
 // NewCounterVecWithOpts creates a wrapped counter vec from options
