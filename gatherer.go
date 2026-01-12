@@ -5,20 +5,26 @@ package metric
 
 import (
 	"fmt"
+	"sort"
 	"sync"
-
-	"github.com/prometheus/client_golang/prometheus"
-	dto "github.com/prometheus/client_model/go"
 )
+
+// Gatherer gathers metric families for exposition.
+type Gatherer interface {
+	Gather() ([]*MetricFamily, error)
+}
+
+// Gatherers is a helper type for slices of gatherers.
+type Gatherers []Gatherer
 
 // MultiGatherer extends the Gatherer interface by allowing additional gatherers
 // to be registered and deregistered.
 type MultiGatherer interface {
-	prometheus.Gatherer
+	Gatherer
 
 	// Register adds the outputs of [gatherer] to the results of future calls to
 	// Gather with the provided [namespace] added to the metrics.
-	Register(namespace string, gatherer prometheus.Gatherer) error
+	Register(namespace string, gatherer Gatherer) error
 
 	// Deregister removes the outputs of a gatherer with [namespace] from the results
 	// of future calls to Gather. Returns true if a gatherer with [namespace] was
@@ -26,29 +32,23 @@ type MultiGatherer interface {
 	Deregister(namespace string) bool
 }
 
-// Gatherer aliases the Prometheus Gatherer interface.
-type Gatherer = prometheus.Gatherer
-
-// MetricFamily aliases the Prometheus metric family type.
-type MetricFamily = dto.MetricFamily
-
-// NewMultiGatherer returns a new MultiGatherer that merges metrics by namespace
+// NewMultiGatherer returns a new MultiGatherer that merges metrics by namespace.
 func NewMultiGatherer() MultiGatherer {
 	return &multiGatherer{
-		gatherers: make(map[string]prometheus.Gatherer),
+		gatherers: make(map[string]Gatherer),
 	}
 }
 
 type multiGatherer struct {
 	lock      sync.RWMutex
-	gatherers map[string]prometheus.Gatherer
+	gatherers map[string]Gatherer
 }
 
-func (g *multiGatherer) Gather() ([]*dto.MetricFamily, error) {
+func (g *multiGatherer) Gather() ([]*MetricFamily, error) {
 	g.lock.RLock()
 	defer g.lock.RUnlock()
 
-	var result []*dto.MetricFamily
+	var result []*MetricFamily
 	for _, gatherer := range g.gatherers {
 		metrics, err := gatherer.Gather()
 		if err != nil {
@@ -56,10 +56,15 @@ func (g *multiGatherer) Gather() ([]*dto.MetricFamily, error) {
 		}
 		result = append(result, metrics...)
 	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Name < result[j].Name
+	})
+
 	return result, nil
 }
 
-func (g *multiGatherer) Register(namespace string, gatherer prometheus.Gatherer) error {
+func (g *multiGatherer) Register(namespace string, gatherer Gatherer) error {
 	g.lock.Lock()
 	defer g.lock.Unlock()
 
@@ -79,21 +84,20 @@ func (g *multiGatherer) Deregister(namespace string) bool {
 	return exists
 }
 
-// MakeAndRegister creates a new registry and registers it with the gatherer
-// Returns our Registry alias which is just *prometheus.Registry
+// MakeAndRegister creates a new registry and registers it with the gatherer.
 func MakeAndRegister(gatherer MultiGatherer, namespace string) (Registry, error) {
-	reg := prometheus.NewRegistry()
+	reg := NewRegistry()
 	if err := gatherer.Register(namespace, reg); err != nil {
 		return nil, fmt.Errorf("couldn't register %q metrics: %w", namespace, err)
 	}
 	return reg, nil
 }
 
-// NewPrefixGatherer returns a new MultiGatherer that adds a prefix to all metrics
+// NewPrefixGatherer returns a new MultiGatherer that adds a prefix to all metrics.
 func NewPrefixGatherer() MultiGatherer {
 	return &prefixGatherer{
 		multiGatherer: multiGatherer{
-			gatherers: make(map[string]prometheus.Gatherer),
+			gatherers: make(map[string]Gatherer),
 		},
 	}
 }
@@ -102,63 +106,26 @@ type prefixGatherer struct {
 	multiGatherer
 }
 
-func (g *prefixGatherer) Gather() ([]*dto.MetricFamily, error) {
+func (g *prefixGatherer) Gather() ([]*MetricFamily, error) {
 	g.lock.RLock()
 	defer g.lock.RUnlock()
 
-	var result []*dto.MetricFamily
+	var result []*MetricFamily
 	for namespace, gatherer := range g.gatherers {
 		metrics, err := gatherer.Gather()
 		if err != nil {
 			return nil, err
 		}
-		// Add namespace prefix to each metric
 		for _, mf := range metrics {
-			prefixedName := namespace + "_" + *mf.Name
-			mf.Name = &prefixedName
+			prefixedName := namespace + "_" + mf.Name
+			mf.Name = prefixedName
 		}
 		result = append(result, metrics...)
 	}
-	return result, nil
-}
 
-// NewLabelGatherer returns a new MultiGatherer that adds a label to all metrics
-func NewLabelGatherer(labelName string) MultiGatherer {
-	return &labelGatherer{
-		labelName: labelName,
-		multiGatherer: multiGatherer{
-			gatherers: make(map[string]prometheus.Gatherer),
-		},
-	}
-}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Name < result[j].Name
+	})
 
-type labelGatherer struct {
-	labelName string
-	multiGatherer
-}
-
-func (g *labelGatherer) Gather() ([]*dto.MetricFamily, error) {
-	g.lock.RLock()
-	defer g.lock.RUnlock()
-
-	var result []*dto.MetricFamily
-	for labelValue, gatherer := range g.gatherers {
-		metrics, err := gatherer.Gather()
-		if err != nil {
-			return nil, err
-		}
-		// Add label to each metric
-		for _, mf := range metrics {
-			for _, m := range mf.Metric {
-				// Add the label
-				labelPair := &dto.LabelPair{
-					Name:  &g.labelName,
-					Value: &labelValue,
-				}
-				m.Label = append(m.Label, labelPair)
-			}
-		}
-		result = append(result, metrics...)
-	}
 	return result, nil
 }
