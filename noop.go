@@ -3,84 +3,105 @@
 
 package metric
 
-import (
-	"github.com/prometheus/client_golang/prometheus"
-)
+// noopCounter is a counter that does nothing.
+type noopCounter struct{ value float64 }
 
-// noopCounter is a counter that does nothing
-type noopCounter struct {
-	value float64
-}
+func (n *noopCounter) Inc()          { n.value++ }
+func (n *noopCounter) Add(v float64) { n.value += v }
+func (n *noopCounter) Get() float64  { return n.value }
 
-func (n *noopCounter) Inc()                              { n.value++ }
-func (n *noopCounter) Add(v float64)                     { n.value += v }
-func (n *noopCounter) Get() float64                      { return n.value }
-func (n *noopCounter) Describe(ch chan<- *prometheus.Desc) {}
-func (n *noopCounter) Collect(ch chan<- prometheus.Metric) {}
+// noopGauge is a gauge that does nothing.
+type noopGauge struct{ value float64 }
 
-// noopGauge is a gauge that does nothing
-type noopGauge struct {
-	value float64
-}
+func (n *noopGauge) Set(v float64) { n.value = v }
+func (n *noopGauge) Inc()          { n.value++ }
+func (n *noopGauge) Dec()          { n.value-- }
+func (n *noopGauge) Add(v float64) { n.value += v }
+func (n *noopGauge) Sub(v float64) { n.value -= v }
+func (n *noopGauge) Get() float64  { return n.value }
 
-func (n *noopGauge) Set(v float64)                     { n.value = v }
-func (n *noopGauge) Inc()                              { n.value++ }
-func (n *noopGauge) Dec()                              { n.value-- }
-func (n *noopGauge) Add(v float64)                     { n.value += v }
-func (n *noopGauge) Sub(v float64)                     { n.value -= v }
-func (n *noopGauge) Get() float64                      { return n.value }
-func (n *noopGauge) Describe(ch chan<- *prometheus.Desc) {}
-func (n *noopGauge) Collect(ch chan<- prometheus.Metric) {}
-
-// noopHistogram is a histogram that does nothing
+// noopHistogram is a histogram that does nothing.
 type noopHistogram struct{}
 
-func (n *noopHistogram) Observe(v float64)              {}
-func (n *noopHistogram) Describe(ch chan<- *prometheus.Desc) {}
-func (n *noopHistogram) Collect(ch chan<- prometheus.Metric) {}
+func (n *noopHistogram) Observe(float64) {}
 
-// noopSummary is a summary that does nothing
+// noopSummary is a summary that does nothing.
 type noopSummary struct{}
 
-func (n *noopSummary) Observe(v float64) {}
-func (n *noopSummary) Describe(ch chan<- *prometheus.Desc) {}
-func (n *noopSummary) Collect(ch chan<- prometheus.Metric) {}
+func (n *noopSummary) Observe(float64) {}
 
-// noopCounterVec is a counter vector that does nothing
+// noopCounterVec is a counter vector that does nothing.
 type noopCounterVec struct{}
 
 func (n *noopCounterVec) With(Labels) Counter               { return &noopCounter{} }
 func (n *noopCounterVec) WithLabelValues(...string) Counter { return &noopCounter{} }
-func (n *noopCounterVec) Describe(ch chan<- *prometheus.Desc)         {}
-func (n *noopCounterVec) Collect(ch chan<- prometheus.Metric)          {}
 
-// noopGaugeVec is a gauge vector that does nothing
+// noopGaugeVec is a gauge vector that does nothing.
 type noopGaugeVec struct{}
 
 func (n *noopGaugeVec) With(Labels) Gauge               { return &noopGauge{} }
 func (n *noopGaugeVec) WithLabelValues(...string) Gauge { return &noopGauge{} }
-func (n *noopGaugeVec) Describe(ch chan<- *prometheus.Desc)       {}
-func (n *noopGaugeVec) Collect(ch chan<- prometheus.Metric)        {}
 
-// noopHistogramVec is a histogram vector that does nothing
+// noopHistogramVec is a histogram vector that does nothing.
 type noopHistogramVec struct{}
 
 func (n *noopHistogramVec) With(Labels) Histogram               { return &noopHistogram{} }
 func (n *noopHistogramVec) WithLabelValues(...string) Histogram { return &noopHistogram{} }
-func (n *noopHistogramVec) Describe(ch chan<- *prometheus.Desc)       {}
-func (n *noopHistogramVec) Collect(ch chan<- prometheus.Metric)        {}
 
-// noopSummaryVec is a summary vector that does nothing
+// noopSummaryVec is a summary vector that does nothing.
 type noopSummaryVec struct{}
 
 func (n *noopSummaryVec) With(Labels) Summary               { return &noopSummary{} }
 func (n *noopSummaryVec) WithLabelValues(...string) Summary { return &noopSummary{} }
 
-func newNoopRegistry() Registry {
-	return prometheus.NewRegistry()
+// noopRegistry provides a registry that gathers nothing.
+type noopRegistry struct{}
+
+func newNoopRegistry() Registry { return &noopRegistry{} }
+
+func (r *noopRegistry) Register(_ Collector) error  { return nil }
+func (r *noopRegistry) MustRegister(_ ...Collector) {}
+func (r *noopRegistry) Gather() ([]*MetricFamily, error) {
+	return nil, nil
 }
 
-// noopMetrics is a metrics implementation that does nothing
+func (r *noopRegistry) NewCounter(name, help string) Counter {
+	return &noopCounter{}
+}
+
+func (r *noopRegistry) NewCounterVec(name, help string, labelNames []string) CounterVec {
+	return &noopCounterVec{}
+}
+
+func (r *noopRegistry) NewGauge(name, help string) Gauge {
+	return &noopGauge{}
+}
+
+func (r *noopRegistry) NewGaugeVec(name, help string, labelNames []string) GaugeVec {
+	return &noopGaugeVec{}
+}
+
+func (r *noopRegistry) NewHistogram(name, help string, buckets []float64) Histogram {
+	return &noopHistogram{}
+}
+
+func (r *noopRegistry) NewHistogramVec(name, help string, labelNames []string, buckets []float64) HistogramVec {
+	return &noopHistogramVec{}
+}
+
+func (r *noopRegistry) NewSummary(name, help string, objectives map[float64]float64) Summary {
+	return &noopSummary{}
+}
+
+func (r *noopRegistry) NewSummaryVec(name, help string, labelNames []string, objectives map[float64]float64) SummaryVec {
+	return &noopSummaryVec{}
+}
+
+func (r *noopRegistry) Registry() Registry {
+	return r
+}
+
+// noopMetrics is a metrics implementation that does nothing.
 type noopMetrics struct {
 	registry Registry
 }
@@ -121,63 +142,53 @@ func (n *noopMetrics) Registry() Registry {
 	return n.registry
 }
 
-func (n *noopMetrics) PrometheusRegistry() interface{} {
-	return prometheus.NewRegistry()
-}
-
-// NewNoOpMetrics creates a no-op metrics instance for testing
+// NewNoOpMetrics returns a no-op metrics instance.
 func NewNoOpMetrics(namespace string) Metrics {
-	return &noopMetrics{
-		registry: newNoopRegistry(),
-	}
+	return &noopMetrics{registry: newNoopRegistry()}
 }
 
-// NewNoOp creates a no-op metrics instance without namespace
-func NewNoOp() Metrics {
-	return NewNoOpMetrics("")
-}
-
-// NewNoOpRegistry creates a no-op registry for testing
+// NewNoOpRegistry returns a no-op registry.
 func NewNoOpRegistry() Registry {
 	return newNoopRegistry()
 }
 
-// NewNoopGauge creates a new standalone noop gauge metric
-func NewNoopGauge(name string) Gauge {
-	return &noopGauge{}
+// NewNoOp returns a no-op metrics instance without requiring a namespace.
+func NewNoOp() Metrics {
+	return NewNoOpMetrics("")
 }
 
-// NewNoopHistogram creates a new standalone noop histogram metric
-func NewNoopHistogram(name string) Histogram {
-	return &noopHistogram{}
-}
-
-// NewNoopCounter creates a new standalone noop counter metric
-func NewNoopCounter(name string) Counter {
-	return &noopCounter{}
-}
-
-// NewNoopSummary creates a new standalone noop summary metric
-func NewNoopSummary(name string) Summary {
-	return &noopSummary{}
-}
-
-// noopFactory creates noop metrics
+// noopFactory produces no-op metrics.
 type noopFactory struct{}
 
-// NewNoOpFactory creates a factory that produces noop metrics
+func (f *noopFactory) New(namespace string) Metrics {
+	return NewNoOpMetrics(namespace)
+}
+
+func (f *noopFactory) NewWithRegistry(namespace string, _ Registry) Metrics {
+	return NewNoOpMetrics(namespace)
+}
+
+// NewNoOpFactory returns a factory that produces no-op metrics.
 func NewNoOpFactory() Factory {
 	return &noopFactory{}
 }
 
-func (f *noopFactory) New(namespace string) Metrics {
-	return &noopMetrics{
-		registry: newNoopRegistry(),
-	}
+// NewNoopGauge returns a no-op gauge.
+func NewNoopGauge() Gauge {
+	return &noopGauge{}
 }
 
-func (f *noopFactory) NewWithRegistry(namespace string, registry Registry) Metrics {
-	return &noopMetrics{
-		registry: registry,
-	}
+// NewNoopCounter returns a no-op counter.
+func NewNoopCounter() Counter {
+	return &noopCounter{}
+}
+
+// NewNoopHistogram returns a no-op histogram.
+func NewNoopHistogram() Histogram {
+	return &noopHistogram{}
+}
+
+// NewNoopSummary returns a no-op summary.
+func NewNoopSummary() Summary {
+	return &noopSummary{}
 }
