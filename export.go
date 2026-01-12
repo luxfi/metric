@@ -5,53 +5,37 @@ package metric
 
 import (
 	"net/http"
-
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/collectors"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/prometheus/common/expfmt"
-	dto "github.com/prometheus/client_model/go"
 )
 
-// Export prometheus types that are needed by the node
-
-// NewRegistry creates a new registry (internal implementation uses Prometheus)
-// This is already exported via the var declaration in metric.go
+// Export types needed by the node.
 
 // ProcessCollectorOpts are options for the process collector
-type ProcessCollectorOpts = collectors.ProcessCollectorOpts
-
-// NewProcessCollector creates a new process collector
-func NewProcessCollector(opts ProcessCollectorOpts) prometheus.Collector {
-	return collectors.NewProcessCollector(opts)
+type ProcessCollectorOpts struct {
+	Namespace string
+	PidFn     func() (int, error)
 }
 
-// NewGoCollector creates a new Go collector
-func NewGoCollector() prometheus.Collector {
-	return collectors.NewGoCollector()
+// MetricDesc describes a metric.
+type MetricDesc struct {
+	Name string
+	Help string
+	Type MetricType
 }
 
-// HTTPHandler creates an HTTP handler for metrics
-func HTTPHandler(gatherer prometheus.Gatherer, opts promhttp.HandlerOpts) http.Handler {
-	return promhttp.HandlerFor(gatherer, opts)
+// NewProcessCollector creates a new process collector (no-op for now).
+func NewProcessCollector(opts ProcessCollectorOpts) Collector {
+	return &processCollector{opts: opts}
 }
 
-// HTTPHandlerOpts are options for the HTTP handler
-type HTTPHandlerOpts = promhttp.HandlerOpts
+// NewGoCollector creates a new Go collector (no-op for now).
+func NewGoCollector() Collector {
+	return &goCollector{}
+}
 
-// MetricFamilies is a slice of metric families
-type MetricFamilies = []*dto.MetricFamily
+// MetricFamilies is a slice of metric families.
+type MetricFamilies = []*MetricFamily
 
-// DTOMetricFamily is an alias for dto.MetricFamily for backward compatibility
-type DTOMetricFamily = dto.MetricFamily
-
-// TextParser is an alias for expfmt.TextParser
-type TextParser = expfmt.TextParser
-
-// NewPrometheusRegistry is an alias for NewRegistry for backward compatibility
-var NewPrometheusRegistry = NewRegistry
-
-// WrapPrometheusRegistry wraps a prometheus registry in our Registry interface
-func WrapPrometheusRegistry(promReg *prometheus.Registry) Registry {
-	return promReg
+// NewHTTPHandler creates an HTTP handler for metrics.
+func NewHTTPHandler(gatherer Gatherer, opts HandlerOpts) http.Handler {
+	return HandlerForWithOpts(gatherer, opts)
 }
