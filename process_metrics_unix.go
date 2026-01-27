@@ -1,7 +1,7 @@
 // Copyright (C) 2020-2026, Lux Industries Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
-//go:build !windows
+//go:build unix
 
 package metric
 
