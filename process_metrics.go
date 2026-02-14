@@ -16,24 +16,24 @@ func GatherProcessMetrics(opts ProcessCollectorOpts) ([]*MetricFamily, error) {
 
 	families := []*MetricFamily{
 		{
-			Name: "process_start_time_seconds",
-			Type: MetricTypeGauge,
+			Name:    "process_start_time_seconds",
+			Type:    MetricTypeGauge,
 			Metrics: []Metric{{Value: MetricValue{Value: start}}},
 		},
 	}
 
 	if cpu, ok := processCPUSeconds(); ok {
 		families = append(families, &MetricFamily{
-			Name: "process_cpu_seconds_total",
-			Type: MetricTypeCounter,
+			Name:    "process_cpu_seconds_total",
+			Type:    MetricTypeCounter,
 			Metrics: []Metric{{Value: MetricValue{Value: cpu}}},
 		})
 	}
 
 	if rss, ok := processResidentBytes(); ok {
 		families = append(families, &MetricFamily{
-			Name: "process_resident_memory_bytes",
-			Type: MetricTypeGauge,
+			Name:    "process_resident_memory_bytes",
+			Type:    MetricTypeGauge,
 			Metrics: []Metric{{Value: MetricValue{Value: rss}}},
 		})
 	}
