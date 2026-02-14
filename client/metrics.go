@@ -231,10 +231,10 @@ func (x *Quantile) GetValue() float64 {
 
 // Summary represents a summary metric value.
 type Summary struct {
-	SampleCount      *uint64    `json:"sample_count,omitempty"`
-	SampleSum        *float64   `json:"sample_sum,omitempty"`
+	SampleCount      *uint64     `json:"sample_count,omitempty"`
+	SampleSum        *float64    `json:"sample_sum,omitempty"`
 	Quantile         []*Quantile `json:"quantile,omitempty"`
-	CreatedTimestamp *Timestamp `json:"created_timestamp,omitempty"`
+	CreatedTimestamp *Timestamp  `json:"created_timestamp,omitempty"`
 }
 
 // Reset resets the Summary to its zero value.
