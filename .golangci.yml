@@ -1,0 +1,9 @@
+linters:
+  disable:
+    - unused  # Registry methods implement exported interfaces; false positives on private type methods
+
+linters-settings:
+  errcheck:
+    exclude-functions:
+      - (github.com/prometheus/client_golang/prometheus.Registerer).Register
+      - (github.com/prometheus/client_golang/prometheus.Registerer).MustRegister
