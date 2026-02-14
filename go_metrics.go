@@ -16,28 +16,28 @@ func GatherGoMetrics() ([]*MetricFamily, error) {
 
 	families := []*MetricFamily{
 		{
-			Name: "go_goroutines",
-			Type: MetricTypeGauge,
+			Name:    "go_goroutines",
+			Type:    MetricTypeGauge,
 			Metrics: []Metric{{Value: MetricValue{Value: float64(runtime.NumGoroutine())}}},
 		},
 		{
-			Name: "go_memstats_alloc_bytes",
-			Type: MetricTypeGauge,
+			Name:    "go_memstats_alloc_bytes",
+			Type:    MetricTypeGauge,
 			Metrics: []Metric{{Value: MetricValue{Value: float64(ms.Alloc)}}},
 		},
 		{
-			Name: "go_memstats_sys_bytes",
-			Type: MetricTypeGauge,
+			Name:    "go_memstats_sys_bytes",
+			Type:    MetricTypeGauge,
 			Metrics: []Metric{{Value: MetricValue{Value: float64(ms.Sys)}}},
 		},
 		{
-			Name: "go_memstats_heap_objects",
-			Type: MetricTypeGauge,
+			Name:    "go_memstats_heap_objects",
+			Type:    MetricTypeGauge,
 			Metrics: []Metric{{Value: MetricValue{Value: float64(ms.HeapObjects)}}},
 		},
 		{
-			Name: "go_memstats_last_gc_time_seconds",
-			Type: MetricTypeGauge,
+			Name:    "go_memstats_last_gc_time_seconds",
+			Type:    MetricTypeGauge,
 			Metrics: []Metric{{Value: MetricValue{Value: float64(ms.LastGC) / float64(time.Second)}}},
 		},
 	}
