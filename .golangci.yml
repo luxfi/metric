@@ -1,3 +1,5 @@
+version: "2"
+
 linters:
   disable:
     - unused  # Registry methods implement exported interfaces; false positives on private type methods
