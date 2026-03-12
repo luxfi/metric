@@ -1,6 +1,6 @@
 module github.com/luxfi/metric
 
-go 1.26
+go 1.26.1
 
 require (
 	github.com/gorilla/rpc v1.2.1
