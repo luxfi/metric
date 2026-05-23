@@ -13,11 +13,12 @@ func (n *noopCounter) Get() float64  { return n.value }
 // noopGauge is a gauge that does nothing.
 type noopGauge struct{ value float64 }
 
-func (n *noopGauge) Set(v float64) { n.value = v }
-func (n *noopGauge) Inc()          { n.value++ }
-func (n *noopGauge) Dec()          { n.value-- }
-func (n *noopGauge) Add(v float64) { n.value += v }
-func (n *noopGauge) Sub(v float64) { n.value -= v }
+func (n *noopGauge) Set(v float64)     { n.value = v }
+func (n *noopGauge) SetToCurrentTime() {}
+func (n *noopGauge) Inc()              { n.value++ }
+func (n *noopGauge) Dec()              { n.value-- }
+func (n *noopGauge) Add(v float64)     { n.value += v }
+func (n *noopGauge) Sub(v float64)     { n.value -= v }
 func (n *noopGauge) Get() float64  { return n.value }
 
 // noopHistogram is a histogram that does nothing.

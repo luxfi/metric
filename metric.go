@@ -56,6 +56,7 @@ type Counter interface {
 // Gauge is a metric that can increase or decrease.
 type Gauge interface {
 	Set(float64)
+	SetToCurrentTime()
 	Inc()
 	Dec()
 	Add(float64)
