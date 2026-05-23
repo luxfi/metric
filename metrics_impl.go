@@ -81,6 +81,12 @@ func (vg *metricGauge) Set(val float64) {
 	atomic.StoreInt64(&vg.value, int64(math.Float64bits(val)))
 }
 
+// SetToCurrentTime sets the gauge to seconds-since-epoch. Matches
+// prometheus/client_golang's Gauge.SetToCurrentTime.
+func (vg *metricGauge) SetToCurrentTime() {
+	vg.Set(float64(time.Now().Unix()))
+}
+
 // Get returns the gauge value
 func (vg *metricGauge) Get() float64 {
 	return math.Float64frombits(uint64(atomic.LoadInt64(&vg.value)))
