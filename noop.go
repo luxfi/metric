@@ -35,24 +35,28 @@ type noopCounterVec struct{}
 
 func (n *noopCounterVec) With(Labels) Counter               { return &noopCounter{} }
 func (n *noopCounterVec) WithLabelValues(...string) Counter { return &noopCounter{} }
+func (n *noopCounterVec) Reset()                            {}
 
 // noopGaugeVec is a gauge vector that does nothing.
 type noopGaugeVec struct{}
 
 func (n *noopGaugeVec) With(Labels) Gauge               { return &noopGauge{} }
 func (n *noopGaugeVec) WithLabelValues(...string) Gauge { return &noopGauge{} }
+func (n *noopGaugeVec) Reset()                          {}
 
 // noopHistogramVec is a histogram vector that does nothing.
 type noopHistogramVec struct{}
 
 func (n *noopHistogramVec) With(Labels) Histogram               { return &noopHistogram{} }
 func (n *noopHistogramVec) WithLabelValues(...string) Histogram { return &noopHistogram{} }
+func (n *noopHistogramVec) Reset()                              {}
 
 // noopSummaryVec is a summary vector that does nothing.
 type noopSummaryVec struct{}
 
 func (n *noopSummaryVec) With(Labels) Summary               { return &noopSummary{} }
 func (n *noopSummaryVec) WithLabelValues(...string) Summary { return &noopSummary{} }
+func (n *noopSummaryVec) Reset()                            {}
 
 // noopRegistry provides a registry that gathers nothing.
 type noopRegistry struct{}
