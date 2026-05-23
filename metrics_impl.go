@@ -665,6 +665,19 @@ func (hpr *registry) RegisterLabeledSummary(name string, labels Labels, summary 
 	hpr.summaries[name][key] = &labeledSummary{labels: cloneLabels(labels), summary: summary}
 }
 
+// deregisterLabeled drops all label-permutation children for the named
+// metric across counter/gauge/histogram/summary registries. Called by
+// {Counter,Gauge,Histogram,Summary}Vec.Reset() to mirror prometheus
+// vec semantics.
+func (hpr *registry) deregisterLabeled(name string) {
+	hpr.mu.Lock()
+	defer hpr.mu.Unlock()
+	delete(hpr.counters, name)
+	delete(hpr.gauges, name)
+	delete(hpr.histograms, name)
+	delete(hpr.summaries, name)
+}
+
 // NewCounter creates and registers a counter.
 func (hpr *registry) NewCounter(name, help string) Counter {
 	counter := newCounter(name, help)
@@ -862,6 +875,15 @@ func (v *counterVec) getOrCreate(labels Labels) Counter {
 	return counter
 }
 
+// Reset drops every label-permutation child from this vec. Mirrors
+// prometheus/client_golang.CounterVec.Reset semantics.
+func (v *counterVec) Reset() {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	v.registry.deregisterLabeled(v.name)
+	v.counters = make(map[string]Counter)
+}
+
 // gaugeVec is a labeled gauge collection.
 type gaugeVec struct {
 	registry   *registry
@@ -902,6 +924,14 @@ func (v *gaugeVec) getOrCreate(labels Labels) Gauge {
 	v.registry.RegisterLabeledGauge(v.name, labels, gauge)
 	v.gauges[key] = gauge
 	return gauge
+}
+
+// Reset drops every label-permutation child from this vec.
+func (v *gaugeVec) Reset() {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	v.registry.deregisterLabeled(v.name)
+	v.gauges = make(map[string]Gauge)
 }
 
 // histogramVec is a labeled histogram collection.
@@ -946,6 +976,14 @@ func (v *histogramVec) getOrCreate(labels Labels) Histogram {
 	v.registry.RegisterLabeledHistogram(v.name, labels, histogram)
 	v.histograms[key] = histogram
 	return histogram
+}
+
+// Reset drops every label-permutation child from this vec.
+func (v *histogramVec) Reset() {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	v.registry.deregisterLabeled(v.name)
+	v.histograms = make(map[string]Histogram)
 }
 
 // summaryVec is a labeled summary collection.
@@ -994,6 +1032,14 @@ func (v *summaryVec) getOrCreate(labels Labels) Summary {
 	v.registry.RegisterLabeledSummary(v.name, labels, summary)
 	v.summaries[key] = summary
 	return summary
+}
+
+// Reset drops every label-permutation child from this vec.
+func (v *summaryVec) Reset() {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	v.registry.deregisterLabeled(v.name)
+	v.summaries = make(map[string]Summary)
 }
 
 func labelsFromValues(labelNames []string, values []string) Labels {
