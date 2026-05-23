@@ -105,24 +105,28 @@ type Factory interface {
 type CounterVec interface {
 	With(Labels) Counter
 	WithLabelValues(...string) Counter
+	Reset()
 }
 
 // GaugeVec is a labeled gauge collection.
 type GaugeVec interface {
 	With(Labels) Gauge
 	WithLabelValues(...string) Gauge
+	Reset()
 }
 
 // HistogramVec is a labeled histogram collection.
 type HistogramVec interface {
 	With(Labels) Histogram
 	WithLabelValues(...string) Histogram
+	Reset()
 }
 
 // SummaryVec is a labeled summary collection.
 type SummaryVec interface {
 	With(Labels) Summary
 	WithLabelValues(...string) Summary
+	Reset()
 }
 
 // MetricsHTTPHandler handles HTTP requests for metrics.
