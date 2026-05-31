@@ -3,23 +3,57 @@
 
 package metric
 
-// noopCounter is a counter that does nothing.
-type noopCounter struct{ value float64 }
+import (
+	"math"
+	"sync/atomic"
+)
 
-func (n *noopCounter) Inc()          { n.value++ }
-func (n *noopCounter) Add(v float64) { n.value += v }
-func (n *noopCounter) Get() float64  { return n.value }
+// noopCounter is a counter that does nothing. value is stored as float64 bits
+// in a uint64 and mutated via CAS so concurrent Inc/Add/Get is race-free —
+// matches metricCounter's representation (metrics_impl.go).
+type noopCounter struct{ value uint64 } // atomic float64 bits
 
-// noopGauge is a gauge that does nothing.
-type noopGauge struct{ value float64 }
+func (n *noopCounter) Inc() { n.Add(1) }
 
-func (n *noopGauge) Set(v float64)     { n.value = v }
+func (n *noopCounter) Add(v float64) {
+	for {
+		oldBits := atomic.LoadUint64(&n.value)
+		newBits := math.Float64bits(math.Float64frombits(oldBits) + v)
+		if atomic.CompareAndSwapUint64(&n.value, oldBits, newBits) {
+			return
+		}
+	}
+}
+
+func (n *noopCounter) Get() float64 {
+	return math.Float64frombits(atomic.LoadUint64(&n.value))
+}
+
+// noopGauge is a gauge that does nothing. value is stored as float64 bits in
+// a uint64 and mutated via CAS so concurrent Set/Inc/Dec/Add/Sub/Get is
+// race-free — matches metricGauge's representation (metrics_impl.go).
+type noopGauge struct{ value uint64 } // atomic float64 bits
+
+func (n *noopGauge) Set(v float64)     { atomic.StoreUint64(&n.value, math.Float64bits(v)) }
 func (n *noopGauge) SetToCurrentTime() {}
-func (n *noopGauge) Inc()              { n.value++ }
-func (n *noopGauge) Dec()              { n.value-- }
-func (n *noopGauge) Add(v float64)     { n.value += v }
-func (n *noopGauge) Sub(v float64)     { n.value -= v }
-func (n *noopGauge) Get() float64  { return n.value }
+func (n *noopGauge) Inc()              { n.Add(1) }
+func (n *noopGauge) Dec()              { n.Add(-1) }
+
+func (n *noopGauge) Add(v float64) {
+	for {
+		oldBits := atomic.LoadUint64(&n.value)
+		newBits := math.Float64bits(math.Float64frombits(oldBits) + v)
+		if atomic.CompareAndSwapUint64(&n.value, oldBits, newBits) {
+			return
+		}
+	}
+}
+
+func (n *noopGauge) Sub(v float64) { n.Add(-v) }
+
+func (n *noopGauge) Get() float64 {
+	return math.Float64frombits(atomic.LoadUint64(&n.value))
+}
 
 // noopHistogram is a histogram that does nothing.
 type noopHistogram struct{}
