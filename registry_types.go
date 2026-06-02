@@ -41,7 +41,7 @@ type prefixRegisterer struct {
 	next   Registerer
 }
 
-func (p *prefixRegisterer) Register(c Collector) error { return p.next.Register(c) }
+func (p *prefixRegisterer) Register(c Collector) error   { return p.next.Register(c) }
 func (p *prefixRegisterer) MustRegister(cs ...Collector) { p.next.MustRegister(cs...) }
 func (p *prefixRegisterer) NewCounter(name, help string) Counter {
 	return p.next.NewCounter(p.prefix+name, help)
