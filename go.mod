@@ -5,6 +5,7 @@ go 1.26.3
 require (
 	github.com/gorilla/rpc v1.2.1
 	github.com/luxfi/filesystem v0.0.1
+	github.com/luxfi/zap v0.6.0
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/sync v0.19.0
 	google.golang.org/protobuf v1.36.11
@@ -17,7 +18,6 @@ require (
 	github.com/grandcat/zeroconf v1.0.0 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/luxfi/mdns v0.1.0 // indirect
-	github.com/luxfi/zap v0.6.0 // indirect
 	github.com/miekg/dns v1.1.62 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
