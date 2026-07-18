@@ -27,8 +27,17 @@ func NewProcessCollector(opts ProcessCollectorOpts) Collector {
 	return &processCollector{opts: opts}
 }
 
-// NewGoCollector creates a new Go collector (no-op for now).
-func NewGoCollector() Collector {
+// NewGoCollector creates a new Go collector (no-op for now). It accepts the
+// Prometheus GoCollectorOption surface (e.g. WithGoCollectorRuntimeMetrics) so
+// callers migrating from prometheus/client_golang compile unchanged; the options
+// are applied to the collector's config and the no-op collector ignores them.
+func NewGoCollector(opts ...GoCollectorOption) Collector {
+	cfg := goCollectorConfig{}
+	for _, o := range opts {
+		if o != nil {
+			o(&cfg)
+		}
+	}
 	return &goCollector{}
 }
 

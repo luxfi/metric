@@ -34,6 +34,19 @@ type HistogramOpts struct {
 	Help        string
 	ConstLabels Labels
 	Buckets     []float64
+
+	// Native (sparse) histogram configuration. These mirror the Prometheus
+	// HistogramOpts surface so callers written against prometheus/client_golang
+	// (CoreDNS, the kubernetes client) compile and configure unchanged. A
+	// non-zero NativeHistogramBucketFactor requests a native histogram; the
+	// remaining fields tune bucket count, the zero bucket, and the reset cadence.
+	NativeHistogramBucketFactor     float64
+	NativeHistogramZeroThreshold    float64
+	NativeHistogramMaxBucketNumber  uint32
+	NativeHistogramMinResetDuration time.Duration
+	NativeHistogramMaxZeroThreshold float64
+	NativeHistogramMaxExemplars     int
+	NativeHistogramExemplarTTL      time.Duration
 }
 
 // SummaryOpts configures a summary metric.
@@ -107,6 +120,9 @@ type CounterVec interface {
 	With(Labels) Counter
 	WithLabelValues(...string) Counter
 	MustCurryWith(Labels) CounterVec
+	// Delete removes the child with the exact label set, returning true if it
+	// was present. Mirrors prometheus.CounterVec.Delete.
+	Delete(Labels) bool
 	Reset()
 }
 
@@ -115,6 +131,9 @@ type GaugeVec interface {
 	With(Labels) Gauge
 	WithLabelValues(...string) Gauge
 	MustCurryWith(Labels) GaugeVec
+	// Delete removes the child with the exact label set, returning true if it
+	// was present. Mirrors prometheus.GaugeVec.Delete.
+	Delete(Labels) bool
 	Reset()
 }
 
@@ -123,6 +142,9 @@ type HistogramVec interface {
 	With(Labels) Histogram
 	WithLabelValues(...string) Histogram
 	MustCurryWith(Labels) HistogramVec
+	// Delete removes the child with the exact label set, returning true if it
+	// was present. Mirrors prometheus.HistogramVec.Delete.
+	Delete(Labels) bool
 	Reset()
 }
 
@@ -131,6 +153,9 @@ type SummaryVec interface {
 	With(Labels) Summary
 	WithLabelValues(...string) Summary
 	MustCurryWith(Labels) SummaryVec
+	// Delete removes the child with the exact label set, returning true if it
+	// was present. Mirrors prometheus.SummaryVec.Delete.
+	Delete(Labels) bool
 	Reset()
 }
 

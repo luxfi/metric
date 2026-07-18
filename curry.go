@@ -55,6 +55,9 @@ func (c *curriedCounterVec) WithLabelValues(values ...string) Counter {
 func (c *curriedCounterVec) MustCurryWith(labels Labels) CounterVec {
 	return c.base.MustCurryWith(mergeLabels(c.fixed, labels))
 }
+func (c *curriedCounterVec) Delete(labels Labels) bool {
+	return c.base.Delete(mergeLabels(c.fixed, labels))
+}
 func (c *curriedCounterVec) Reset() { c.base.Reset() }
 
 // --- gauge ---
@@ -77,6 +80,9 @@ func (c *curriedGaugeVec) WithLabelValues(values ...string) Gauge {
 }
 func (c *curriedGaugeVec) MustCurryWith(labels Labels) GaugeVec {
 	return c.base.MustCurryWith(mergeLabels(c.fixed, labels))
+}
+func (c *curriedGaugeVec) Delete(labels Labels) bool {
+	return c.base.Delete(mergeLabels(c.fixed, labels))
 }
 func (c *curriedGaugeVec) Reset() { c.base.Reset() }
 
@@ -101,6 +107,9 @@ func (c *curriedHistogramVec) WithLabelValues(values ...string) Histogram {
 func (c *curriedHistogramVec) MustCurryWith(labels Labels) HistogramVec {
 	return c.base.MustCurryWith(mergeLabels(c.fixed, labels))
 }
+func (c *curriedHistogramVec) Delete(labels Labels) bool {
+	return c.base.Delete(mergeLabels(c.fixed, labels))
+}
 func (c *curriedHistogramVec) Reset() { c.base.Reset() }
 
 // --- summary ---
@@ -123,5 +132,8 @@ func (c *curriedSummaryVec) WithLabelValues(values ...string) Summary {
 }
 func (c *curriedSummaryVec) MustCurryWith(labels Labels) SummaryVec {
 	return c.base.MustCurryWith(mergeLabels(c.fixed, labels))
+}
+func (c *curriedSummaryVec) Delete(labels Labels) bool {
+	return c.base.Delete(mergeLabels(c.fixed, labels))
 }
 func (c *curriedSummaryVec) Reset() { c.base.Reset() }

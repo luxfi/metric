@@ -684,6 +684,70 @@ func (hpr *registry) deregisterLabeled(name string) {
 	delete(hpr.summaries, name)
 }
 
+// deregisterLabeled{Counter,Gauge,Histogram,Summary}One drops a SINGLE
+// label-permutation child (identified by its labels key) for the named metric,
+// returning true if it was present. Backs {Counter,Gauge,Histogram,Summary}Vec.
+// Delete — the single-series analogue of deregisterLabeled/Reset.
+func (hpr *registry) deregisterLabeledCounterOne(name, key string) bool {
+	hpr.mu.Lock()
+	defer hpr.mu.Unlock()
+	m := hpr.counters[name]
+	if m == nil {
+		return false
+	}
+	_, ok := m[key]
+	delete(m, key)
+	if len(m) == 0 {
+		delete(hpr.counters, name)
+	}
+	return ok
+}
+
+func (hpr *registry) deregisterLabeledGaugeOne(name, key string) bool {
+	hpr.mu.Lock()
+	defer hpr.mu.Unlock()
+	m := hpr.gauges[name]
+	if m == nil {
+		return false
+	}
+	_, ok := m[key]
+	delete(m, key)
+	if len(m) == 0 {
+		delete(hpr.gauges, name)
+	}
+	return ok
+}
+
+func (hpr *registry) deregisterLabeledHistogramOne(name, key string) bool {
+	hpr.mu.Lock()
+	defer hpr.mu.Unlock()
+	m := hpr.histograms[name]
+	if m == nil {
+		return false
+	}
+	_, ok := m[key]
+	delete(m, key)
+	if len(m) == 0 {
+		delete(hpr.histograms, name)
+	}
+	return ok
+}
+
+func (hpr *registry) deregisterLabeledSummaryOne(name, key string) bool {
+	hpr.mu.Lock()
+	defer hpr.mu.Unlock()
+	m := hpr.summaries[name]
+	if m == nil {
+		return false
+	}
+	_, ok := m[key]
+	delete(m, key)
+	if len(m) == 0 {
+		delete(hpr.summaries, name)
+	}
+	return ok
+}
+
 // NewCounter creates and registers a counter.
 func (hpr *registry) NewCounter(name, help string) Counter {
 	counter := newCounter(name, help)
@@ -739,6 +803,14 @@ func (hpr *registry) Registry() Registry {
 
 // Register is a compatibility no-op. Metrics are registered on creation.
 func (hpr *registry) Register(c Collector) error {
+	// The Go and process collectors are exposition-only shims in this library
+	// (no sparse runtime/process series yet); registering them is a no-op rather
+	// than an "unsupported type" error, so prometheus-style
+	// MustRegister(NewGoCollector(...)) succeeds.
+	switch c.(type) {
+	case *goCollector, *processCollector:
+		return nil
+	}
 	name, typ, ok := collectorIdentity(c)
 	if !ok {
 		return fmt.Errorf("unsupported collector type %T", c)
@@ -909,6 +981,17 @@ func (v *counterVec) Reset() {
 	v.counters = make(map[string]Counter)
 }
 
+// Delete removes the child with the exact label set. Mirrors prometheus.
+func (v *counterVec) Delete(labels Labels) bool {
+	key := labelsKeyFromLabels(labels)
+	v.mu.Lock()
+	_, existed := v.counters[key]
+	delete(v.counters, key)
+	v.mu.Unlock()
+	regExisted := v.registry.deregisterLabeledCounterOne(v.name, key)
+	return existed || regExisted
+}
+
 // gaugeVec is a labeled gauge collection.
 type gaugeVec struct {
 	registry   *registry
@@ -957,6 +1040,17 @@ func (v *gaugeVec) Reset() {
 	defer v.mu.Unlock()
 	v.registry.deregisterLabeled(v.name)
 	v.gauges = make(map[string]Gauge)
+}
+
+// Delete removes the child with the exact label set. Mirrors prometheus.
+func (v *gaugeVec) Delete(labels Labels) bool {
+	key := labelsKeyFromLabels(labels)
+	v.mu.Lock()
+	_, existed := v.gauges[key]
+	delete(v.gauges, key)
+	v.mu.Unlock()
+	regExisted := v.registry.deregisterLabeledGaugeOne(v.name, key)
+	return existed || regExisted
 }
 
 // histogramVec is a labeled histogram collection.
@@ -1009,6 +1103,17 @@ func (v *histogramVec) Reset() {
 	defer v.mu.Unlock()
 	v.registry.deregisterLabeled(v.name)
 	v.histograms = make(map[string]Histogram)
+}
+
+// Delete removes the child with the exact label set. Mirrors prometheus.
+func (v *histogramVec) Delete(labels Labels) bool {
+	key := labelsKeyFromLabels(labels)
+	v.mu.Lock()
+	_, existed := v.histograms[key]
+	delete(v.histograms, key)
+	v.mu.Unlock()
+	regExisted := v.registry.deregisterLabeledHistogramOne(v.name, key)
+	return existed || regExisted
 }
 
 // summaryVec is a labeled summary collection.
@@ -1065,6 +1170,17 @@ func (v *summaryVec) Reset() {
 	defer v.mu.Unlock()
 	v.registry.deregisterLabeled(v.name)
 	v.summaries = make(map[string]Summary)
+}
+
+// Delete removes the child with the exact label set. Mirrors prometheus.
+func (v *summaryVec) Delete(labels Labels) bool {
+	key := labelsKeyFromLabels(labels)
+	v.mu.Lock()
+	_, existed := v.summaries[key]
+	delete(v.summaries, key)
+	v.mu.Unlock()
+	regExisted := v.registry.deregisterLabeledSummaryOne(v.name, key)
+	return existed || regExisted
 }
 
 func labelsFromValues(labelNames []string, values []string) Labels {
@@ -1131,8 +1247,12 @@ func labelsToLabelPairs(labels Labels) []LabelPair {
 func (hpr *registry) registerName(name string, typ MetricType) error {
 	hpr.mu.Lock()
 	defer hpr.mu.Unlock()
-	if existing, ok := hpr.registered[name]; ok {
-		return fmt.Errorf("metric %q already registered as %s", name, existing.String())
+	if _, ok := hpr.registered[name]; ok {
+		// Return the typed AlreadyRegisteredError (mirrors prometheus.Registry)
+		// so callers that tolerate re-registration — CoreDNS re-runs setup on
+		// every `reload` — can detect the duplicate and continue instead of
+		// treating it as a fatal error.
+		return AlreadyRegisteredError{}
 	}
 	hpr.registered[name] = typ
 	return nil
