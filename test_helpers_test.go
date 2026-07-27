@@ -2,10 +2,7 @@
 
 package metric
 
-import (
-	"bytes"
-	"testing"
-)
+import "testing"
 
 func gatherFamilies(t *testing.T, reg Registry) []*MetricFamily {
 	t.Helper()
@@ -14,15 +11,6 @@ func gatherFamilies(t *testing.T, reg Registry) []*MetricFamily {
 		t.Fatalf("gather failed: %v", err)
 	}
 	return families
-}
-
-func encodeFamilies(t *testing.T, families []*MetricFamily) string {
-	t.Helper()
-	var buf bytes.Buffer
-	if err := EncodeText(&buf, families); err != nil {
-		t.Fatalf("encode failed: %v", err)
-	}
-	return buf.String()
 }
 
 func findFamily(t *testing.T, families []*MetricFamily, name string) *MetricFamily {

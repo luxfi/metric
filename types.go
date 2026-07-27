@@ -74,8 +74,3 @@ type MetricFamily struct {
 	Type    MetricType
 	Metrics []Metric
 }
-
-// ptr returns a pointer to the string (helper for compatibility).
-func ptr(s string) *string {
-	return &s
-}
