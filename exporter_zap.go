@@ -284,10 +284,7 @@ func translateFamily(fam *MetricFamily) MetricFamilyWire {
 					if math.IsInf(b.UpperBound, +1) {
 						continue
 					}
-					mw.Buckets = append(mw.Buckets, BucketWire{
-						UpperBound:      b.UpperBound,
-						CumulativeCount: b.CumulativeCount,
-					})
+					mw.Buckets = append(mw.Buckets, BucketWire(b))
 				}
 			}
 		case MetricTypeSummary:
@@ -298,10 +295,7 @@ func translateFamily(fam *MetricFamily) MetricFamilyWire {
 			if len(m.Value.Quantiles) > 0 {
 				mw.Quantiles = make([]QuantileWire, len(m.Value.Quantiles))
 				for i, q := range m.Value.Quantiles {
-					mw.Quantiles[i] = QuantileWire{
-						Quantile: q.Quantile,
-						Value:    q.Value,
-					}
+					mw.Quantiles[i] = QuantileWire(q)
 				}
 			}
 		}

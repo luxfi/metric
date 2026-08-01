@@ -267,23 +267,23 @@ func (vh *metricHistogram) String() string {
 
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf("# HELP %s %s\n", vh.name, vh.help))
-	sb.WriteString(fmt.Sprintf("# TYPE %s histogram\n", vh.name))
+	fmt.Fprintf(&sb, "# HELP %s %s\n", vh.name, vh.help)
+	fmt.Fprintf(&sb, "# TYPE %s histogram\n", vh.name)
 
 	// Write bucket counts
 	cumulative := uint64(0)
 	for i, bucket := range vh.buckets {
 		cumulative += atomic.LoadUint64(&vh.bucketCounts[i])
-		sb.WriteString(fmt.Sprintf("%s_bucket{le=\"%g\"} %d\n", vh.name, bucket, cumulative))
+		fmt.Fprintf(&sb, "%s_bucket{le=\"%g\"} %d\n", vh.name, bucket, cumulative)
 	}
 
 	// Write +Inf bucket
 	cumulative += atomic.LoadUint64(&vh.bucketCounts[len(vh.buckets)])
-	sb.WriteString(fmt.Sprintf("%s_bucket{le=\"+Inf\"} %d\n", vh.name, cumulative))
+	fmt.Fprintf(&sb, "%s_bucket{le=\"+Inf\"} %d\n", vh.name, cumulative)
 
 	// Write count and sum
-	sb.WriteString(fmt.Sprintf("%s_count %d\n", vh.name, atomic.LoadUint64(&vh.count)))
-	sb.WriteString(fmt.Sprintf("%s_sum %g\n", vh.name, math.Float64frombits(atomic.LoadUint64((*uint64)(unsafe.Pointer(&vh.sum))))))
+	fmt.Fprintf(&sb, "%s_count %d\n", vh.name, atomic.LoadUint64(&vh.count))
+	fmt.Fprintf(&sb, "%s_sum %g\n", vh.name, math.Float64frombits(atomic.LoadUint64((*uint64)(unsafe.Pointer(&vh.sum)))))
 
 	return sb.String()
 }
@@ -405,16 +405,16 @@ func (vs *metricSummary) String() string {
 
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf("# HELP %s %s\n", vs.name, vs.help))
-	sb.WriteString(fmt.Sprintf("# TYPE %s summary\n", vs.name))
+	fmt.Fprintf(&sb, "# HELP %s %s\n", vs.name, vs.help)
+	fmt.Fprintf(&sb, "# TYPE %s summary\n", vs.name)
 
 	// Write count and sum
-	sb.WriteString(fmt.Sprintf("%s_count %d\n", vs.name, atomic.LoadUint64(&vs.count)))
-	sb.WriteString(fmt.Sprintf("%s_sum %g\n", vs.name, math.Float64frombits(atomic.LoadUint64((*uint64)(unsafe.Pointer(&vs.sum))))))
+	fmt.Fprintf(&sb, "%s_count %d\n", vs.name, atomic.LoadUint64(&vs.count))
+	fmt.Fprintf(&sb, "%s_sum %g\n", vs.name, math.Float64frombits(atomic.LoadUint64((*uint64)(unsafe.Pointer(&vs.sum)))))
 
 	// Write quantiles
 	for _, q := range quantilesFromSamples(vs.samples, vs.objectives) {
-		sb.WriteString(fmt.Sprintf("%s{quantile=\"%g\"} %g\n", vs.name, q.Quantile, q.Value))
+		fmt.Fprintf(&sb, "%s{quantile=\"%g\"} %g\n", vs.name, q.Quantile, q.Value)
 	}
 
 	return sb.String()
