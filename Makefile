@@ -46,8 +46,17 @@ lint:
 # Install development tools
 install-tools:
 	@echo "Installing development tools..."
+# `go install`, not curl|sh. The old line fetched install.sh from master and let
+# it resolve "latest", so it broke the moment upstream's script and its release
+# assets disagreed:
+#   hash_sha256_verify checksum for golangci-lint-2.12.2-linux-amd64.tar.gz
+#   fd3a137c7e722128143cc8932bcaa00bc73e10ad... vs 8df580d2670fed8fa984aac05070...
+# That is reproducible across re-runs, not a corrupted download. `go install`
+# resolves through the module proxy and is verified against the checksum
+# database, so a mismatch becomes a hard, meaningful error instead of a failed
+# tarball — and it is what luxfi/consensus does, whose lint job passes.
 	@if ! which $(GOLINT) > /dev/null 2>&1; then \
-		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin; \
+		go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest; \
 	fi
 
 # Clean build artifacts
