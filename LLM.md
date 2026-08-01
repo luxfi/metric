@@ -36,7 +36,7 @@ Use `metric.EncodeText(w, families)` to serialize gathered metrics, or
 
 ## Metrics-Off Build
 
-The package supports build-tagged no-op defaults. When compiled without
-the `metrics` tag, `NewRegistry` and the package defaults return no-op
+The package supports build-tagged no-op defaults. When compiled with
+the `metrics_noop` tag, `NewRegistry` and the package defaults return no-op
 implementations to minimize overhead. Pre-bind label values in hot paths to
 avoid expensive argument construction.

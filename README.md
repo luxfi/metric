@@ -67,13 +67,15 @@ byRoute.WithLabelValues("GET", "/").Inc()
 
 ## Metrics Off Build
 
-For benchmark runs, you can swap the entire package to no-op implementations
-using build tags. This keeps call sites unchanged while minimizing overhead.
+Metrics record for real in an ordinary build. For benchmark runs you can swap
+the entire package to no-op implementations with a build tag, which keeps call
+sites unchanged while minimizing overhead.
 
 ```bash
-go test -tags metrics ./...
+go test -tags metrics_noop ./...
 ```
 
-When built without the `metrics` tag, `metric.NewRegistry()` and the package
-defaults return no-op implementations. Pre-bind label values in hot paths to
+Built with the `metrics_noop` tag, `metric.NewRegistry()` and the package
+defaults return no-op implementations that record nothing — every counter
+reads zero — so use it only where that is what you want. Pre-bind label values in hot paths to
 avoid argument construction overhead.

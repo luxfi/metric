@@ -1,4 +1,4 @@
-//go:build metrics
+//go:build !metrics_noop
 
 package metric
 
