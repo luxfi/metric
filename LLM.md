@@ -40,3 +40,23 @@ The package supports build-tagged no-op defaults. When compiled with
 the `metrics_noop` tag, `NewRegistry` and the package defaults return no-op
 implementations to minimize overhead. Pre-bind label values in hot paths to
 avoid expensive argument construction.
+
+## OpenTelemetry
+
+A service instrumented with the OpenTelemetry metric SDK exports over ZAP
+through `github.com/luxfi/metric/otel`, which is a package of its own:
+
+```go
+exp, err := otel.New(metric.ZAPExporterConfig{Endpoint: "o11y:4317", AppName: "ingress"})
+mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(sdkmetric.NewPeriodicReader(exp)))
+```
+
+Keep the root package free of OpenTelemetry. Plugins import it for the registry,
+`EncodeText` and `NewZAPExporter`, and are then built into hundreds of programs
+that must link everything the root package imports. The check is
+
+```
+go list -deps . | grep go.opentelemetry.io
+```
+
+which must print nothing.
