@@ -59,10 +59,22 @@ func NewNoAverager() Averager {
 
 func (noAverager) Observe(float64) {}
 
-// AppendNamespace appends a namespace to a metric name if needed
+// AppendNamespace joins a namespace and a name with the "_" prometheus uses,
+// skipping the separator when either side is absent.
+//
+// Both sides are optional. Every New*Vec below calls this as
+// AppendNamespace(opts.Namespace, opts.Subsystem) to build a prefix, and a
+// metric with a namespace and no subsystem is ordinary — coredns_build_info is
+// one. Returning namespace+"_" for that case left a trailing separator, and the
+// caller then adds its own, so the metric registered as coredns__build_info and
+// nothing scraping for its real name could find it.
 func AppendNamespace(namespace, name string) string {
-	if namespace == "" {
+	switch {
+	case namespace == "":
 		return name
+	case name == "":
+		return namespace
+	default:
+		return namespace + "_" + name
 	}
-	return namespace + "_" + name
 }
