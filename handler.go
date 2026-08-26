@@ -47,41 +47,23 @@ func HandlerFor(gatherer Gatherer) http.Handler {
 }
 
 // HandlerForWithOpts returns an HTTP handler for the provided gatherer and options.
+//
+// It writes what [Scrape] renders and decides nothing itself. The timeout, the
+// error policy and the content type a scraper expects live in one place, so a
+// caller whose transport is not net/http answers identically by writing the
+// same value rather than by reimplementing any of it.
 func HandlerForWithOpts(gatherer Gatherer, opts HandlerOpts) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
 		timeout := opts.Timeout
 		if timeout == 0 {
-			timeout = parseScrapeTimeout(r)
+			timeout = ScrapeTimeout(r.Header.Get)
 		}
-		if timeout > 0 {
-			var cancel context.CancelFunc
-			ctx, cancel = context.WithTimeout(ctx, timeout)
-			defer cancel()
+		e := Scrape(r.Context(), gatherer, opts, timeout)
+		for k, v := range e.Header {
+			w.Header().Set(k, v)
 		}
-
-		families, err := gatherWithContext(ctx, gatherer)
-		if err != nil {
-			switch opts.ErrorHandling {
-			case HandlerErrorHandlingContinue:
-				if opts.ErrorLog != nil {
-					opts.ErrorLog.Println("metrics gather error:", err)
-				}
-			default:
-				http.Error(w, "metrics gather error", http.StatusInternalServerError)
-				return
-			}
-		}
-
-		w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
-		if err := EncodeText(w, families); err != nil {
-			if opts.ErrorHandling == HandlerErrorHandlingContinue && opts.ErrorLog != nil {
-				opts.ErrorLog.Println("metrics encode error:", err)
-				return
-			}
-			http.Error(w, "metrics encode error", http.StatusInternalServerError)
-			return
-		}
+		w.WriteHeader(e.Status)
+		_, _ = w.Write(e.Body)
 	})
 }
 
@@ -90,25 +72,6 @@ func gatherWithContext(ctx context.Context, gatherer Gatherer) ([]*MetricFamily,
 		return nil, err
 	}
 	return gatherer.Gather()
-}
-
-// parseScrapeTimeout parses the scrape timeout header.
-func parseScrapeTimeout(r *http.Request) time.Duration {
-	headerVal := r.Header.Get("X-Scrape-Timeout-Seconds")
-	if headerVal == "" {
-		headerVal = r.Header.Get("X-Prometheus-Scrape-Timeout-Seconds")
-	}
-	if headerVal == "" {
-		return 0
-	}
-	seconds, err := strconv.ParseFloat(headerVal, 64)
-	if err != nil {
-		return 0
-	}
-	if seconds <= 0 {
-		return 0
-	}
-	return time.Duration(seconds * float64(time.Second))
 }
 
 // Handler is a convenience method for exposing the default registry.
