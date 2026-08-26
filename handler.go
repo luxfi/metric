@@ -74,9 +74,14 @@ func gatherWithContext(ctx context.Context, gatherer Gatherer) ([]*MetricFamily,
 	return gatherer.Gather()
 }
 
-// Handler is a convenience method for exposing the default registry.
+// Handler exposes the default registry — the one the package-level constructors
+// ([NewCounter], [NewGaugeVec] and their siblings) register into and the one
+// [DefaultGatherer] reads. So a process that records through those helpers and
+// serves this scrapes back what it recorded, naming no registry at either end.
+//
+// A caller that keeps its own registry names it with [HandlerFor] instead.
 func Handler() http.Handler {
-	return HandlerFor(NewRegistry())
+	return HandlerFor(DefaultGatherer)
 }
 
 // ValidateGatherer returns a non-nil error if the gatherer is nil.
