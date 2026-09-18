@@ -828,15 +828,124 @@ func (hpr *registry) Register(c Collector) error {
 	case *metricSummary:
 		hpr.RegisterSummary(name, v)
 	case *counterVec:
-		v.registry = hpr
+		v.moveTo(hpr)
 	case *gaugeVec:
-		v.registry = hpr
+		v.moveTo(hpr)
 	case *histogramVec:
-		v.registry = hpr
+		v.moveTo(hpr)
 	case *summaryVec:
-		v.registry = hpr
+		v.moveTo(hpr)
 	}
 	return nil
+}
+
+// moveTo makes dst the registry this vector writes to, and takes the series it
+// already has with it.
+//
+// Under the vector's own lock, so no child can appear between the two: a
+// counter incremented before registration used to stay in the registry the
+// vector was built against and gather nowhere, which made the answer depend on
+// whether the caller registered before or after first use.
+func (v *counterVec) moveTo(dst *registry) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+
+	src := v.registry
+	v.registry = dst
+	if src == nil || src == dst {
+		return
+	}
+
+	src.mu.Lock()
+	held := map[string]map[string]*labeledCounter{v.name: src.counters[v.name]}
+	delete(src.counters, v.name)
+	src.mu.Unlock()
+
+	dst.mu.Lock()
+	defer dst.mu.Unlock()
+	moveName(v.name, held, dst.counters)
+}
+
+// moveTo is [counterVec.moveTo] for this kind.
+func (v *gaugeVec) moveTo(dst *registry) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+
+	src := v.registry
+	v.registry = dst
+	if src == nil || src == dst {
+		return
+	}
+
+	src.mu.Lock()
+	held := map[string]map[string]*labeledGauge{v.name: src.gauges[v.name]}
+	delete(src.gauges, v.name)
+	src.mu.Unlock()
+
+	dst.mu.Lock()
+	defer dst.mu.Unlock()
+	moveName(v.name, held, dst.gauges)
+}
+
+// moveTo is [counterVec.moveTo] for this kind.
+func (v *histogramVec) moveTo(dst *registry) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+
+	src := v.registry
+	v.registry = dst
+	if src == nil || src == dst {
+		return
+	}
+
+	src.mu.Lock()
+	held := map[string]map[string]*labeledHistogram{v.name: src.histograms[v.name]}
+	delete(src.histograms, v.name)
+	src.mu.Unlock()
+
+	dst.mu.Lock()
+	defer dst.mu.Unlock()
+	moveName(v.name, held, dst.histograms)
+}
+
+// moveTo is [counterVec.moveTo] for this kind.
+func (v *summaryVec) moveTo(dst *registry) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+
+	src := v.registry
+	v.registry = dst
+	if src == nil || src == dst {
+		return
+	}
+
+	src.mu.Lock()
+	held := map[string]map[string]*labeledSummary{v.name: src.summaries[v.name]}
+	delete(src.summaries, v.name)
+	src.mu.Unlock()
+
+	dst.mu.Lock()
+	defer dst.mu.Unlock()
+	moveName(v.name, held, dst.summaries)
+}
+
+// moveName hands one metric name's series from one registry's table to
+// another's. The entries carry their own labels, so nothing is rebuilt and
+// nothing is renamed — they are the same series, gathered somewhere else.
+func moveName[E any](name string, from, to map[string]map[string]*E) {
+	entries := from[name]
+	if len(entries) == 0 {
+		return
+	}
+	delete(from, name)
+	into := to[name]
+	if into == nil {
+		into = make(map[string]*E, len(entries))
+		to[name] = into
+	}
+	for key, entry := range entries {
+		into[key] = entry
+	}
 }
 
 // MustRegister registers collectors and panics on error.
